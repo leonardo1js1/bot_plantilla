@@ -19,6 +19,7 @@ const app = express();
 app.set("trust proxy", true);
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 3000);
+const serviceName = "bottt-aviator";
 const menuPdfAbsolutePath = path.resolve(__dirname, "..", "assets", aviatorConfig.menuPdfFilename);
 
 const sessionStore = new SessionStore();
@@ -109,7 +110,7 @@ function extractCloudApiMessage(body) {
 
 app.get("/", (req, res) => {
   res.json({
-    service: "aviator-whatsapp-demo",
+    service: serviceName,
     restaurant: aviatorConfig.restaurantName,
     endpoints: {
       health: "/health",
@@ -126,7 +127,7 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
-    service: "aviator-whatsapp-demo",
+    service: serviceName,
     timestamp: new Date().toISOString()
   });
 });
@@ -364,5 +365,5 @@ app.use((error, req, res, next) => {
 });
 
 app.listen(port, host, () => {
-  console.log(`Aviator WhatsApp demo lista en http://${host}:${port}`);
+  console.log(`${serviceName} listo en http://${host}:${port}`);
 });

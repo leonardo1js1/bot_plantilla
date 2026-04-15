@@ -1,6 +1,6 @@
-# Demo de Chatbot WhatsApp para Aviator
+# bottt-aviator
 
-Proyecto de demostracion en Node.js + Express para mostrar como funcionaria un asistente automatico de WhatsApp del restaurante Aviator.
+Proyecto Node.js + Express para ejecutar el bot de WhatsApp de Aviator y dejarlo listo para publicarlo en GitHub y desplegarlo en Railway.
 
 ## Que incluye
 
@@ -10,7 +10,7 @@ Proyecto de demostracion en Node.js + Express para mostrar como funcionaria un a
 - Validacion estricta de reservas entre `11:00` y `19:30`
 - Endpoint de prueba para simular mensajes entrantes
 - Webhooks listos para conectar despues con Twilio o WhatsApp Cloud API
-- Integracion real con OpenAI para FAQs y respuestas flexibles
+- Integracion con Groq usando el SDK compatible con OpenAI para FAQs y respuestas flexibles
 - PDF de menu de ejemplo: `Menu AVIATOR 2026.pdf`
 
 ## Requisitos
@@ -45,6 +45,20 @@ Archivos relevantes para Railway:
 - `railway.json`: fija `startCommand` y healthcheck en `/health`
 
 Si en Railway habias configurado manualmente `node src/index.js`, puedes dejar que tome la configuracion del repo o cambiarlo a `npm start`.
+
+### Variables de entorno recomendadas en Railway
+
+- `PORT`: Railway la inyecta automaticamente.
+- `BASE_URL`: recomendada para generar enlaces publicos estables al PDF del menu.
+- `GROQ_API_KEY`: requerida si quieres respuestas flexibles con IA.
+- `GROQ_MODEL`: opcional.
+- `GROQ_REQUEST_TIMEOUT_MS`: opcional.
+- `ULTRAMSG_INSTANCE_ID`: requerido solo si usaras `POST /webhook-ultramsg`.
+- `ULTRAMSG_TOKEN`: requerido solo si usaras `POST /webhook-ultramsg`.
+- `ULTRAMSG_API_BASE_URL`: opcional.
+- `WHATSAPP_VERIFY_TOKEN`: requerido solo si usaras el webhook de Meta Cloud API.
+
+Las variables de Twilio estan como placeholders en `.env.example`, pero el codigo actual no depende de ellas para arrancar.
 
 ## Endpoints principales
 

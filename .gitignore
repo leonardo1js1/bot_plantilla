@@ -1,3 +1,44 @@
 node_modules/
+
+# environment files
 .env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# runtime files
+*.pid
+*.pid.lock
+pids/
+
+# temporary files and caches
+tmp/
+temp/
+.tmp/
+.temp/
+.cache/
+coverage/
+.nyc_output/
+dist/
+build/
+*.tsbuildinfo
+
+# system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.orig

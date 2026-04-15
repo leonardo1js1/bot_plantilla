@@ -1,7 +1,7 @@
 {
-  "name": "aviator-whatsapp-demo",
+  "name": "bottt-aviator",
   "version": "1.0.0",
-  "description": "Demo funcional de chatbot para WhatsApp del restaurante Aviator",
+  "description": "Bot de WhatsApp para Aviator listo para GitHub y Railway",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
