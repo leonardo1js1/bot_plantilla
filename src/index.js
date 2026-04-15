@@ -84,6 +84,10 @@ function logRouteError(context, error) {
   console.error(error);
 }
 
+function sendPlainOk(res) {
+  return res.status(200).type("text/plain").send("OK");
+}
+
 async function handleBotMessage(req, { userId, text }) {
   return bot.handleIncomingMessage({
     userId,
@@ -109,27 +113,11 @@ function extractCloudApiMessage(body) {
 }
 
 app.get("/", (req, res) => {
-  res.json({
-    service: serviceName,
-    restaurant: aviatorConfig.restaurantName,
-    endpoints: {
-      health: "/health",
-      testMessage: "/api/test/message",
-      conversation: "/api/test/conversations/:userId",
-      menuPdf: aviatorConfig.menuPdfPath,
-      twilioWebhook: "/webhooks/whatsapp/twilio",
-      cloudApiWebhook: "/webhooks/whatsapp/cloud-api",
-      ultraMsgWebhook: "/webhook-ultramsg"
-    }
-  });
+  return sendPlainOk(res);
 });
 
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: serviceName,
-    timestamp: new Date().toISOString()
-  });
+  return sendPlainOk(res);
 });
 
 app.get(aviatorConfig.menuPdfPath, (req, res) => {
