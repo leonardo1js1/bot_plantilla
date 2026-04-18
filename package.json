@@ -1,7 +1,7 @@
 {
-  "name": "bottt-aviator",
+  "name": "whatsapp-business-bot-template",
   "version": "1.0.0",
-  "description": "Bot de WhatsApp para Aviator listo para GitHub y Railway",
+  "description": "Plantilla reutilizable de bot de WhatsApp para multiples negocios",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {

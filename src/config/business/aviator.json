@@ -1,0 +1,140 @@
+{
+  "slug": "aviator",
+  "name": "Aviator",
+  "type": "restaurante tematico inspirado en la aviacion",
+  "description": "Restaurante tematico de aviacion en Santa Cruz de la Sierra, Bolivia, especializado en alitas, hamburguesas, piqueos y bebidas.",
+  "tone": "amable, claro, profesional, breve y natural para WhatsApp",
+  "contact": {
+    "primaryPhone": "75552233",
+    "text": "Informacion de Aviator\n\nCentral:\nAv. San Martin esquina Leonardo Navas, entre 3er y 4to anillo.\nPedidos central: 75552233\n\nSucursal Norte:\n4to anillo, entre av. Beni y Banzer.\nPatio de comidas Con Tenedores Norte.\nPedidos norte: 69203924"
+  },
+  "hours": {
+    "summary": "Todos los dias de 11:00 a.m. a 12:00 a.m.",
+    "text": "Horario de atencion:\nTodos los dias de 11:00 a.m. a 12:00 a.m."
+  },
+  "menu": {
+    "label": "menu",
+    "pdfFilename": "Menu AVIATOR 2026.pdf",
+    "pdfPath": "/api/menu-pdf",
+    "pdfTitle": "Menu AVIATOR 2026.pdf",
+    "highlightsTitle": "Categorias destacadas",
+    "highlights": [
+      "Hamburguesas Aviator: Bacon Airwolf, Black Box y Aviator clasica",
+      "Alitas fritas o a la parrilla con distintas salsas",
+      "Costilla BBQ Ful Rack",
+      "Piqueos como Chicken Tenders y Misiles de Mozzarella",
+      "Papas Curly y acompanamientos",
+      "Combos con bebida incluida"
+    ],
+    "products": [
+      "Costilla BBQ Ful Rack - BOB 229",
+      "Bacon Cheese + Papas Curly + Pepsi - BOB 61",
+      "6 Alitas Aviator + Papas Curly + Pepsi - BOB 61",
+      "Bacon Airwolf - BOB 65",
+      "Alitas a la Parrilla 6 piezas - BOB 47",
+      "Alitas a la Parrilla 12 piezas - BOB 87",
+      "Alitas a la Parrilla 18 piezas - BOB 124",
+      "Alitas a la Parrilla 24 piezas - BOB 164",
+      "Limited Edition Pilot - BOB 55",
+      "Limited Edition Comand - BOB 55",
+      "Ala Hawaiana - BOB 65",
+      "Andes 737 - BOB 65",
+      "Alitas fritas 6 piezas - BOB 47",
+      "Alitas fritas 12 piezas - BOB 87",
+      "Alitas fritas 18 piezas - BOB 124",
+      "Alitas fritas 24 piezas - BOB 164",
+      "Hamburguesa Tamarindo Smokey Bomb - BOB 59 o BOB 69 segun presentacion",
+      "Hamburguesa Aviator Happy Lunch - BOB 59",
+      "La Re-Llenita - BOB 50",
+      "Alitas a la Parrilla con papas fritas y bebida - BOB 59",
+      "Hamburguesa Bacon Airwolf Happy Lunch - BOB 59",
+      "Alitas Tradicionales con papas fritas y bebida - BOB 59",
+      "Gaseosa Coca-Cola 500 ml - BOB 18",
+      "Gaseosa Fanta 500 ml - BOB 18",
+      "Gaseosa Sprite 500 ml - BOB 18",
+      "Salsas extra: Hot Barbacoa, Parmesan Garlic, Sweet Buffalo, Mostaza y Miel, Barbacoa Aviator, Honey Buffalo, Buffalo Hot, Blue Cheese, Buffalo Mild, Sweet - BOB 8",
+      "Chicken Tenders - BOB 46",
+      "Misiles de Mozzarella - BOB 54",
+      "ALL-ABOARD para 6 personas - BOB 329",
+      "Papas Fritas Curly - BOB 25",
+      "Ensalada Coleslaw - BOB 15",
+      "Hamburguesa Black Box - BOB 69",
+      "Hamburguesa Bacon Airwolf - BOB 69",
+      "Hamburguesa Kimcheese - BOB 69",
+      "Hamburguesa Aviator - BOB 69",
+      "Tamarindo Smokey Bomb - BOB 69",
+      "Hamburguesa Honolulu - BOB 69",
+      "Hamburguesa American Aviator - BOB 69",
+      "Hamburguesa Smoke Kamikaze - BOB 69",
+      "Hamburguesa Macho Pilot - BOB 69"
+    ]
+  },
+  "faqs": [
+    {
+      "question": "Que servicios estan disponibles",
+      "answer": "Consumo en el lugar, para llevar, entrega a domicilio, entrega sin contacto y retiros en la puerta."
+    },
+    {
+      "question": "Aceptan reservas",
+      "answer": "Si. Se aceptan reservas y se recomienda reservar para la cena."
+    },
+    {
+      "question": "Que formas de pago aceptan",
+      "answer": "Tarjetas de credito, tarjetas de debito y pagos moviles por NFC."
+    },
+    {
+      "question": "Hay terraza o asientos al aire libre",
+      "answer": "Si. Tiene asientos al aire libre, terraza, servicio a la mesa y bar."
+    },
+    {
+      "question": "Es apto para grupos o ninos",
+      "answer": "Si. Es ideal para grupos, universitarios, turistas y tambien para ir con ninos. Tiene sillas altas y acceso para silla de ruedas."
+    }
+  ],
+  "reservation": {
+    "label": "reserva",
+    "labelPlural": "reservas",
+    "optionLabel": "Reservar mesa",
+    "intentExample": "quiero reservar",
+    "dateExamples": "12/06/2026, 12-6-2026, manana o este viernes",
+    "openingTime": "11:00",
+    "cutoffTime": "19:30",
+    "toleranceMinutes": 10,
+    "rules": [
+      "No aceptamos reservas pasadas las 19:30.",
+      "El tiempo de tolerancia maximo es de 10 minutos.",
+      "Pasado ese tiempo, la mesa puede ser asignada a otra persona.",
+      "No aceptamos un numero mayor de personas al reservado.",
+      "Esta prohibido el ingreso con bebidas o comida ajenas al establecimiento.",
+      "Esta prohibido fumar en ambientes cerrados.",
+      "En eventos masivos no se aceptan mascotas."
+    ],
+    "successMessage": "Perfecto. Tu reserva quedo registrada. Un encargado la confirmara en breve."
+  },
+  "ai": {
+    "fallbackReply": "Ahora mismo no pude procesar esa consulta. Si quieres, puedo ayudarte con una reserva, el menu o la ubicacion de Aviator.",
+    "confirmedFacts": [
+      "Ubicacion principal: Av. San Martin esquina Leonardo Navas, entre 3er y 4to anillo.",
+      "Ciudad: Santa Cruz de la Sierra, Bolivia.",
+      "Horario: todos los dias de 11:00 a.m. a 12:00 a.m.",
+      "Telefono principal: 75552233.",
+      "Servicios disponibles: consumo en el lugar, para llevar, entrega a domicilio, entrega sin contacto y retiros en la puerta.",
+      "Tiene asientos al aire libre, terraza, servicio a la mesa y bar.",
+      "Es ideal para grupos, universitarios, turistas y tambien para ir con ninos.",
+      "Tiene sillas altas para ninos y acceso para personas en silla de ruedas.",
+      "Hay estacionamiento gratuito en la calle, aunque puede ser dificil encontrar espacio."
+    ],
+    "rules": [
+      "Nunca inventes informacion.",
+      "Si el usuario pregunta algo no confirmado, dilo con honestidad y sugiere consultar directamente al negocio.",
+      "No asegures cosas que no estan confirmadas, por ejemplo WiFi o politicas especiales no documentadas.",
+      "Nunca digas que vas a llamar al cliente ni prometas llamadas reales desde este chat.",
+      "Si el usuario quiere reservar, guialo pidiendo nombre, fecha, hora y cantidad de personas.",
+      "Mantener respuestas breves, utiles y conversacionales, ideales para WhatsApp."
+    ],
+    "recommendationHints": [
+      "Si preguntan que recomiendas, puedes sugerir hamburguesas como Bacon Airwolf, Aviator o Black Box.",
+      "Tambien puedes recomendar alitas tradicionales o a la parrilla, o el combo ALL-ABOARD si vienen varias personas."
+    ]
+  }
+}

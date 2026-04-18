@@ -1,17 +1,17 @@
-# bottt-aviator
+# whatsapp-business-bot-template
 
-Proyecto Node.js + Express para ejecutar el bot de WhatsApp de Aviator y dejarlo listo para publicarlo en GitHub y desplegarlo en Railway.
+Proyecto Node.js + Express para ejecutar un bot de WhatsApp reutilizable para distintos negocios y dejarlo listo para publicarlo en GitHub y desplegarlo en Railway.
 
 ## Que incluye
 
-- Bot conversacional adaptado a Aviator
+- Bot conversacional reusable por negocio
 - Contexto en memoria por usuario
 - Flujo guiado para reservas
 - Validacion estricta de reservas entre `11:00` y `19:30`
 - Endpoint de prueba para simular mensajes entrantes
 - Webhooks listos para conectar despues con Twilio o WhatsApp Cloud API
 - Integracion con Groq usando el SDK compatible con OpenAI para FAQs y respuestas flexibles
-- PDF de menu de ejemplo: `Menu AVIATOR 2026.pdf`
+- Configuracion por negocio desde `src/config/business/*.json`
 
 ## Requisitos
 
@@ -94,7 +94,7 @@ Invoke-RestMethod `
   -Body '{"userId":"59170000001","message":"1"}'
 ```
 
-### 3. Reservar mesa paso a paso
+### 3. Flujo de reserva paso a paso
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"hola"}'
@@ -103,7 +103,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -Cont
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"Carlos Rojas"}'
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"15/04/2026"}'
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"19:00"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"75552233"}'
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"si"}'
 ```
 
 ### 4. Ver conversacion de un usuario
@@ -118,7 +118,7 @@ Invoke-RestMethod `
 
 ### UltraMsg
 
-La ruta `POST /webhook-ultramsg` ya recibe el payload tipico de UltraMsg con `data.from` y `data.body`, reutiliza la logica del bot en `src/bot/aviatorBot.js` y responde al mismo chat usando `messages/chat`.
+La ruta `POST /webhook-ultramsg` ya recibe el payload tipico de UltraMsg con `data.from` y `data.body`, reutiliza la logica del bot en `src/bot/bot.js` y responde al mismo chat usando `messages/chat`.
 
 Configura estas variables en tu `.env`:
 
@@ -147,7 +147,7 @@ La ruta `POST /webhooks/whatsapp/twilio` ya acepta el formato tipico de campos `
 
 1. Configuras el webhook del sandbox o numero de Twilio hacia esa URL.
 2. Reemplazas la respuesta local por el envio real si quieres mensajes salientes asincronos.
-3. Mantienes la logica de negocio en `src/bot/aviatorBot.js`.
+3. Mantienes la logica de negocio en `src/bot/bot.js`.
 
 ### WhatsApp Cloud API
 
@@ -167,7 +167,7 @@ Comportamiento actual:
 
 - Usa `GROQ_API_KEY` desde el backend
 - Usa `GROQ_MODEL` para definir el modelo de la demo gratis
-- Envia prompt de sistema de Aviator
+- Envia prompt de sistema dinamico segun el negocio activo
 - Envia los ultimos 10 mensajes del historial con roles `system`, `user` y `assistant`
 - Mantiene respuestas fijas para menu, reserva, ubicacion y opciones principales
 - Usa Groq para consultas abiertas, FAQs y mensajes que no caen en intents fijos

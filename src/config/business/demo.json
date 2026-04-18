@@ -1,0 +1,84 @@
+{
+  "slug": "demo",
+  "name": "Demo Barber Studio",
+  "type": "barberia urbana",
+  "description": "Barberia de ejemplo para demostrar que el mismo bot puede reutilizarse en otro negocio sin cambiar la logica.",
+  "tone": "cercano, claro, profesional y breve",
+  "contact": {
+    "primaryPhone": "70000000",
+    "text": "Informacion de Demo Barber Studio\n\nDireccion:\nAv. Demo 123, local 4.\nSanta Cruz de la Sierra.\n\nReservas y consultas:\n70000000"
+  },
+  "hours": {
+    "summary": "Lunes a sabado de 09:00 a.m. a 08:00 p.m.",
+    "text": "Horario de atencion:\nLunes a sabado de 09:00 a.m. a 08:00 p.m.\nDomingos cerrado."
+  },
+  "menu": {
+    "label": "catalogo de servicios",
+    "pdfFilename": null,
+    "pdfPath": null,
+    "pdfTitle": null,
+    "highlightsTitle": "Servicios destacados",
+    "highlights": [
+      "Corte clasico",
+      "Fade premium",
+      "Barba completa",
+      "Corte + barba",
+      "Limpieza facial"
+    ],
+    "products": [
+      "Corte clasico - BOB 35",
+      "Fade premium - BOB 45",
+      "Barba completa - BOB 25",
+      "Corte + barba - BOB 55",
+      "Limpieza facial - BOB 30"
+    ]
+  },
+  "faqs": [
+    {
+      "question": "Trabajan con cita",
+      "answer": "Si. Se recomienda agendar una cita para asegurar horario."
+    },
+    {
+      "question": "Atienden ninos",
+      "answer": "Si. Tambien atendemos cortes para ninos."
+    },
+    {
+      "question": "Aceptan pagos con QR o tarjeta",
+      "answer": "Si. Aceptamos efectivo, QR y tarjeta."
+    }
+  ],
+  "reservation": {
+    "label": "cita",
+    "labelPlural": "citas",
+    "optionLabel": "Agendar cita",
+    "intentExample": "quiero agendar una cita",
+    "dateExamples": "12/06/2026, 12-6-2026, manana o este viernes",
+    "openingTime": "09:00",
+    "cutoffTime": "20:00",
+    "toleranceMinutes": 10,
+    "rules": [
+      "Las citas se atienden dentro del horario disponible.",
+      "La tolerancia maxima es de 10 minutos.",
+      "Si llegas tarde, el horario puede ser reasignado.",
+      "Para cambios o cancelaciones, escribe con anticipacion."
+    ],
+    "successMessage": "Perfecto. Tu cita quedo registrada. Un encargado la confirmara en breve."
+  },
+  "ai": {
+    "fallbackReply": "Ahora mismo no pude procesar esa consulta. Si quieres, puedo ayudarte con una cita, horarios o el catalogo de servicios de Demo Barber Studio.",
+    "confirmedFacts": [
+      "Ubicacion: Av. Demo 123, local 4, Santa Cruz de la Sierra.",
+      "Horario: lunes a sabado de 09:00 a.m. a 08:00 p.m.",
+      "Telefono principal: 70000000.",
+      "Servicios: corte clasico, fade premium, barba completa, corte + barba y limpieza facial."
+    ],
+    "rules": [
+      "Nunca inventes informacion.",
+      "Si el usuario quiere atencion humana o llamada, deriva al telefono principal.",
+      "Si el usuario quiere una cita, guia el proceso pidiendo nombre, fecha, hora y cantidad de personas."
+    ],
+    "recommendationHints": [
+      "Si alguien pide recomendacion, puedes sugerir fade premium o corte + barba."
+    ]
+  }
+}

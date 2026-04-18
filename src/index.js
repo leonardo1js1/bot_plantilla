@@ -5,8 +5,9 @@ const loadEnv = require("./config/loadEnv");
 loadEnv();
 
 const SessionStore = require("./store/sessionStore");
-const createAviatorBot = require("./bot/aviatorBot");
-const aviatorConfig = require("./config/aviatorConfig");
+const createBot = require("./bot/bot");
+// La data del cliente activo vive en src/config/business/<slug>.json.
+const business = require("./config/loadBusiness");
 const {
   extractUltraMsgChatId,
   extractUltraMsgMessage,
@@ -19,11 +20,14 @@ const app = express();
 app.set("trust proxy", true);
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 3000);
-const serviceName = "bottt-aviator";
-const menuPdfAbsolutePath = path.resolve(__dirname, "..", "assets", aviatorConfig.menuPdfFilename);
+const serviceName = process.env.SERVICE_NAME || `bottt-${business.slug}`;
+const menuPdfAbsolutePath = business.menu.pdfFilename
+  ? path.resolve(__dirname, "..", "assets", business.menu.pdfFilename)
+  : null;
 
 const sessionStore = new SessionStore();
-const bot = createAviatorBot({ sessionStore });
+// El bot recibe el negocio activo para que la misma base sirva para otros clientes.
+const bot = createBot({ sessionStore, business });
 const FRIENDLY_PROCESSING_ERROR =
   "No pudimos procesar tu mensaje en este momento. Intenta nuevamente en unos segundos.";
 
@@ -120,9 +124,11 @@ app.get("/health", (req, res) => {
   return sendPlainOk(res);
 });
 
-app.get(aviatorConfig.menuPdfPath, (req, res) => {
-  res.sendFile(menuPdfAbsolutePath);
-});
+if (business.menu.pdfPath && business.menu.pdfFilename) {
+  app.get(business.menu.pdfPath, (req, res) => {
+    res.sendFile(menuPdfAbsolutePath);
+  });
+}
 
 app.post("/api/test/message", async (req, res) => {
   const userId = String(req.body.userId || "").trim();
@@ -220,7 +226,7 @@ app.get("/webhooks/whatsapp/cloud-api", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
-  const expectedToken = process.env.WHATSAPP_VERIFY_TOKEN || "aviator-demo-token";
+  const expectedToken = process.env.WHATSAPP_VERIFY_TOKEN || `${business.slug}-demo-token`;
 
   if (mode === "subscribe" && token === expectedToken) {
     return res.status(200).send(challenge);
