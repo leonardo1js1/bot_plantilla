@@ -1,12 +1,17 @@
 {
-  "slug": "aviator",
+  "id": "aviator",
   "name": "Aviator",
   "type": "restaurante tematico inspirado en la aviacion",
   "description": "Restaurante tematico de aviacion en Santa Cruz de la Sierra, Bolivia, especializado en alitas, hamburguesas, piqueos y bebidas.",
   "tone": "amable, claro, profesional, breve y natural para WhatsApp",
+  "location": {
+    "text": "Ubicacion principal:\nAv. San Martin esquina Leonardo Navas, entre 3er y 4to anillo.\nSanta Cruz de la Sierra, Bolivia.",
+    "address": "Av. San Martin esquina Leonardo Navas, entre 3er y 4to anillo.",
+    "city": "Santa Cruz de la Sierra, Bolivia"
+  },
   "contact": {
     "primaryPhone": "75552233",
-    "text": "Informacion de Aviator\n\nCentral:\nAv. San Martin esquina Leonardo Navas, entre 3er y 4to anillo.\nPedidos central: 75552233\n\nSucursal Norte:\n4to anillo, entre av. Beni y Banzer.\nPatio de comidas Con Tenedores Norte.\nPedidos norte: 69203924"
+    "text": "Informacion de contacto:\nCentral: 75552233\nSucursal Norte: 69203924"
   },
   "hours": {
     "summary": "Todos los dias de 11:00 a.m. a 12:00 a.m.",
@@ -109,7 +114,8 @@
       "Esta prohibido fumar en ambientes cerrados.",
       "En eventos masivos no se aceptan mascotas."
     ],
-    "successMessage": "Perfecto. Tu reserva quedo registrada. Un encargado la confirmara en breve."
+    "successMessage": "Perfecto. Tu reserva quedo registrada. Un encargado la confirmara en breve.",
+    "duplicateMessage": "Ya existe una reserva pendiente con esos datos."
   },
   "ai": {
     "fallbackReply": "Ahora mismo no pude procesar esa consulta. Si quieres, puedo ayudarte con una reserva, el menu o la ubicacion de Aviator.",

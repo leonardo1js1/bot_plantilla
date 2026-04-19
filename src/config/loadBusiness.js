@@ -1,93 +1,82 @@
+const fs = require("fs");
 const path = require("path");
 
-const DEFAULT_BUSINESS_SLUG = "aviator";
+const { validateBusinessConfig } = require("../validators/businessConfigValidator");
 
-function normalizeBusiness(rawBusiness, requestedSlug) {
-  if (!rawBusiness || typeof rawBusiness !== "object") {
-    throw new Error(`La configuracion del negocio "${requestedSlug}" no es valida.`);
-  }
+const BUSINESS_CONFIG_DIR = path.join(__dirname, "business");
+const DEFAULT_BUSINESS_ID = "aviator";
 
-  const business = {
-    ...rawBusiness,
-    slug: String(rawBusiness.slug || requestedSlug || DEFAULT_BUSINESS_SLUG).trim().toLowerCase(),
-    name: String(rawBusiness.name || "").trim(),
-    type: String(rawBusiness.type || "negocio").trim(),
-    description: String(rawBusiness.description || "").trim(),
-    tone: String(rawBusiness.tone || "amable, claro y breve").trim(),
-    contact: {
-      primaryPhone: String(rawBusiness.contact?.primaryPhone || "").trim(),
-      text: String(rawBusiness.contact?.text || "").trim()
-    },
-    hours: {
-      summary: String(rawBusiness.hours?.summary || "").trim(),
-      text: String(rawBusiness.hours?.text || "").trim()
-    },
-    menu: {
-      label: String(rawBusiness.menu?.label || "menu").trim(),
-      pdfFilename: rawBusiness.menu?.pdfFilename || null,
-      pdfPath: rawBusiness.menu?.pdfPath || null,
-      pdfTitle: rawBusiness.menu?.pdfTitle || null,
-      highlightsTitle: String(rawBusiness.menu?.highlightsTitle || "Categorias destacadas").trim(),
-      highlights: Array.isArray(rawBusiness.menu?.highlights) ? rawBusiness.menu.highlights : [],
-      products: Array.isArray(rawBusiness.menu?.products) ? rawBusiness.menu.products : []
-    },
-    faqs: Array.isArray(rawBusiness.faqs) ? rawBusiness.faqs : [],
-    reservation: {
-      label: String(rawBusiness.reservation?.label || "reserva").trim(),
-      labelPlural: String(rawBusiness.reservation?.labelPlural || "reservas").trim(),
-      optionLabel: String(rawBusiness.reservation?.optionLabel || "Reservar").trim(),
-      intentExample: String(rawBusiness.reservation?.intentExample || "quiero reservar").trim(),
-      dateExamples: String(
-        rawBusiness.reservation?.dateExamples || "12/06/2026, 12-6-2026, manana o este viernes"
-      ).trim(),
-      openingTime: String(rawBusiness.reservation?.openingTime || "09:00").trim(),
-      cutoffTime: String(rawBusiness.reservation?.cutoffTime || "18:00").trim(),
-      toleranceMinutes: Number(rawBusiness.reservation?.toleranceMinutes || 0),
-      rules: Array.isArray(rawBusiness.reservation?.rules) ? rawBusiness.reservation.rules : [],
-      successMessage: String(
-        rawBusiness.reservation?.successMessage ||
-          "Perfecto. Tu reserva quedo registrada. Un encargado la confirmara en breve."
-      ).trim()
-    },
-    ai: {
-      fallbackReply: String(rawBusiness.ai?.fallbackReply || "").trim(),
-      confirmedFacts: Array.isArray(rawBusiness.ai?.confirmedFacts) ? rawBusiness.ai.confirmedFacts : [],
-      rules: Array.isArray(rawBusiness.ai?.rules) ? rawBusiness.ai.rules : [],
-      recommendationHints: Array.isArray(rawBusiness.ai?.recommendationHints)
-        ? rawBusiness.ai.recommendationHints
-        : []
-    }
-  };
-
-  if (!business.name) {
-    throw new Error(`La configuracion del negocio "${business.slug}" debe incluir "name".`);
-  }
-
-  return business;
+function getRequestedBusinessId(explicitBusinessId) {
+  return String(
+    explicitBusinessId || process.env.BUSINESS_ID || process.env.BUSINESS_SLUG || DEFAULT_BUSINESS_ID
+  )
+    .trim()
+    .toLowerCase();
 }
 
-function loadBusiness(slug = process.env.BUSINESS_SLUG || DEFAULT_BUSINESS_SLUG) {
-  const requestedSlug = String(slug || DEFAULT_BUSINESS_SLUG).trim().toLowerCase();
-  const businessPath = path.join(__dirname, "business", `${requestedSlug}.json`);
-
+function readBusinessFile(filePath) {
   try {
-    const rawBusiness = require(businessPath);
-    return normalizeBusiness(rawBusiness, requestedSlug);
+    const rawContent = fs.readFileSync(filePath, "utf8");
+    return JSON.parse(rawContent);
   } catch (error) {
-    if (error.code === "MODULE_NOT_FOUND") {
-      throw new Error(
-        `No existe la configuracion "${requestedSlug}". Crea src/config/business/${requestedSlug}.json para agregar un nuevo cliente.`
-      );
+    if (error.name === "SyntaxError") {
+      throw new Error(`El JSON del negocio en "${filePath}" no es valido: ${error.message}`);
     }
 
     throw error;
   }
 }
 
-// Negocio activo: para cambiar de cliente, crea otro JSON en src/config/business
-// y cambia BUSINESS_SLUG en .env o carga otro slug explicitamente.
+function listBusinessConfigFiles() {
+  return fs
+    .readdirSync(BUSINESS_CONFIG_DIR)
+    .filter((fileName) => fileName.toLowerCase().endsWith(".json"))
+    .sort();
+}
+
+function loadBusiness(businessId = getRequestedBusinessId()) {
+  const requestedBusinessId = getRequestedBusinessId(businessId);
+  const businessFilePath = path.join(BUSINESS_CONFIG_DIR, `${requestedBusinessId}.json`);
+
+  if (!fs.existsSync(businessFilePath)) {
+    throw new Error(
+      `No existe la configuracion "${requestedBusinessId}". Crea src/config/business/${requestedBusinessId}.json o usa src/config/business/_template.json como base.`
+    );
+  }
+
+  return validateBusinessConfig(readBusinessFile(businessFilePath), {
+    sourceLabel: path.relative(process.cwd(), businessFilePath),
+    expectedId: requestedBusinessId
+  });
+}
+
+function loadAllBusinesses(options = {}) {
+  const includeTemplates = options.includeTemplates !== false;
+
+  return listBusinessConfigFiles()
+    .filter((fileName) => includeTemplates || !fileName.startsWith("_"))
+    .map((fileName) => {
+      const filePath = path.join(BUSINESS_CONFIG_DIR, fileName);
+      const expectedId = fileName.replace(/\.json$/i, "");
+
+      return validateBusinessConfig(readBusinessFile(filePath), {
+        sourceLabel: path.relative(process.cwd(), filePath),
+        expectedId: expectedId.startsWith("_") ? undefined : expectedId
+      });
+    });
+}
+
+function validateBusinessCatalog() {
+  return loadAllBusinesses({ includeTemplates: true });
+}
+
 const business = loadBusiness();
 
 module.exports = business;
 module.exports.loadBusiness = loadBusiness;
-module.exports.DEFAULT_BUSINESS_SLUG = DEFAULT_BUSINESS_SLUG;
+module.exports.loadAllBusinesses = loadAllBusinesses;
+module.exports.validateBusinessCatalog = validateBusinessCatalog;
+module.exports.getRequestedBusinessId = getRequestedBusinessId;
+module.exports.DEFAULT_BUSINESS_ID = DEFAULT_BUSINESS_ID;
+module.exports.DEFAULT_BUSINESS_SLUG = DEFAULT_BUSINESS_ID;
+module.exports.BUSINESS_CONFIG_DIR = BUSINESS_CONFIG_DIR;

@@ -1,28 +1,50 @@
+const MemoryStorageAdapter = require("../storage/adapters/memoryStorageAdapter");
+const { cloneDeep } = require("../utils/records");
+
+function createInitialSession(userId) {
+  const now = new Date().toISOString();
+
+  return {
+    userId,
+    isFirstContact: true,
+    currentFlow: null,
+    reservationStep: null,
+    reservationDraft: {},
+    lastReservation: null,
+    history: [],
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
 class SessionStore {
-  constructor() {
-    this.sessions = new Map();
+  constructor({ storageAdapter } = {}) {
+    this.storageAdapter = storageAdapter || new MemoryStorageAdapter();
+  }
+
+  get sessions() {
+    return this.storageAdapter.getCollection("sessions");
   }
 
   hasSession(userId) {
-    return this.sessions.has(userId);
+    return Boolean(this.sessions[String(userId || "").trim()]);
   }
 
   getSession(userId) {
-    if (!this.sessions.has(userId)) {
-      this.sessions.set(userId, {
-        userId,
-        isFirstContact: true,
-        currentFlow: null,
-        reservationStep: null,
-        reservationDraft: {},
-        lastReservation: null,
-        history: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
+    const normalizedUserId = String(userId || "").trim();
+
+    if (!this.sessions[normalizedUserId]) {
+      this.sessions[normalizedUserId] = createInitialSession(normalizedUserId);
+      this.storageAdapter.persist();
     }
 
-    return this.sessions.get(userId);
+    return this.sessions[normalizedUserId];
+  }
+
+  saveSession(userId) {
+    this.getSession(userId).updatedAt = new Date().toISOString();
+    this.storageAdapter.persist();
+    return this.getSession(userId);
   }
 
   appendHistory(userId, entry) {
@@ -32,8 +54,10 @@ class SessionStore {
       ...entry,
       createdAt: new Date().toISOString()
     });
-    session.history = session.history.slice(-50);
+    session.history = session.history.slice(-100);
     session.updatedAt = new Date().toISOString();
+    this.storageAdapter.persist();
+    return session;
   }
 
   getRecentHistory(userId, limit = 10) {
@@ -59,8 +83,14 @@ class SessionStore {
     session.reservationStep = null;
     session.reservationDraft = {};
     session.updatedAt = new Date().toISOString();
+    this.storageAdapter.persist();
     return session;
+  }
+
+  getConversation(userId) {
+    return cloneDeep(this.getSession(userId));
   }
 }
 
 module.exports = SessionStore;
+module.exports.createInitialSession = createInitialSession;

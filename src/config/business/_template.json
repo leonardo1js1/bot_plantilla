@@ -1,0 +1,84 @@
+{
+  "id": "sample-business",
+  "name": "Sample Business",
+  "type": "tipo de negocio",
+  "description": "Descripcion breve del negocio y del tipo de atencion que brinda.",
+  "tone": "amable, claro y breve",
+  "location": {
+    "text": "Direccion principal o referencia para compartir por WhatsApp.",
+    "address": "Calle principal 123",
+    "city": "Ciudad, Pais",
+    "mapsUrl": "https://maps.google.com/?q=Calle+principal+123"
+  },
+  "contact": {
+    "primaryPhone": "70000000",
+    "text": "Telefono principal, sucursales o canales de contacto."
+  },
+  "hours": {
+    "summary": "Lunes a viernes de 09:00 a.m. a 06:00 p.m.",
+    "text": "Horario de atencion:\nLunes a viernes de 09:00 a.m. a 06:00 p.m."
+  },
+  "menu": {
+    "label": "catalogo",
+    "pdfFilename": null,
+    "pdfPath": null,
+    "pdfTitle": null,
+    "highlightsTitle": "Destacados",
+    "highlights": [
+      "Servicio o producto 1",
+      "Servicio o producto 2"
+    ],
+    "products": [
+      "Producto 1 - BOB 50",
+      "Producto 2 - BOB 80"
+    ],
+    "links": [
+      {
+        "label": "Catalogo web",
+        "url": "https://example.com/catalogo"
+      }
+    ]
+  },
+  "faqs": [
+    {
+      "question": "Pregunta frecuente de ejemplo",
+      "answer": "Respuesta validada del negocio."
+    }
+  ],
+  "quickAnswers": [
+    {
+      "question": "Respuesta rapida",
+      "answer": "Texto corto reutilizable para consultas repetidas."
+    }
+  ],
+  "reservation": {
+    "label": "reserva",
+    "labelPlural": "reservas",
+    "optionLabel": "Reservar",
+    "intentExample": "quiero reservar",
+    "dateExamples": "12/06/2026, manana o este viernes",
+    "openingTime": "09:00",
+    "cutoffTime": "18:00",
+    "toleranceMinutes": 10,
+    "rules": [
+      "Regla de ejemplo 1",
+      "Regla de ejemplo 2"
+    ],
+    "successMessage": "Perfecto. Tu reserva quedo registrada. Un encargado la confirmara en breve.",
+    "duplicateMessage": "Ya existe una reserva pendiente con esos datos."
+  },
+  "ai": {
+    "fallbackReply": "Ahora mismo no pude procesar esa consulta. Si quieres, puedo ayudarte con una reserva, horarios o catalogo.",
+    "confirmedFacts": [
+      "Hecho confirmado 1",
+      "Hecho confirmado 2"
+    ],
+    "rules": [
+      "Nunca inventes informacion.",
+      "Si algo no esta confirmado, dilo con honestidad."
+    ],
+    "recommendationHints": [
+      "Sugerencia de recomendacion 1"
+    ]
+  }
+}

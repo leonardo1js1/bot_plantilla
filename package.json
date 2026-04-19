@@ -1,12 +1,13 @@
 {
-  "name": "whatsapp-business-bot-template",
+  "name": "whatsapp-multi-business-backend-template",
   "version": "1.0.0",
-  "description": "Plantilla reutilizable de bot de WhatsApp para multiples negocios",
+  "description": "Plantilla reusable de backend de WhatsApp multi-negocio con reservas, handoff y webhooks",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "test": "node test/run-tests.js"
   },
   "engines": {
     "node": ">=18"

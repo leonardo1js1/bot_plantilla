@@ -1,80 +1,291 @@
-# whatsapp-business-bot-template
+# WhatsApp Multi-Business Backend Template
 
-Proyecto Node.js + Express para ejecutar un bot de WhatsApp reutilizable para distintos negocios y dejarlo listo para publicarlo en GitHub y desplegarlo en Railway.
+Plantilla reusable de backend para WhatsApp construida con Node.js + Express.
 
-## Que incluye
+Esta version deja una base lista para clonar en multiples negocios sin tocar la logica principal:
 
-- Bot conversacional reusable por negocio
-- Contexto en memoria por usuario
-- Flujo guiado para reservas
-- Validacion estricta de reservas entre `11:00` y `19:30`
-- Endpoint de prueba para simular mensajes entrantes
-- Webhooks listos para conectar despues con Twilio o WhatsApp Cloud API
-- Integracion con Groq usando el SDK compatible con OpenAI para FAQs y respuestas flexibles
-- Configuracion por negocio desde `src/config/business/*.json`
+- configuracion por negocio en JSON
+- validacion fuerte al arrancar
+- flujo guiado de reservas
+- handoff a humano persistente
+- storage en memoria o archivo JSON local
+- endpoints de prueba y administrativos
+- webhooks compatibles con Twilio, Cloud API y UltraMsg
+- integracion opcional con Groq para fallback conversacional
+
+Aviator queda incluido como negocio de ejemplo y sigue funcionando como demo principal.
+
+## Que trae esta plantilla
+
+- Backend Express con estructura mas clara: `app/`, `routes/`, `services/`, `storage/`, `validators/`
+- Seleccion del negocio activo con `BUSINESS_ID`
+- Validacion reusable para `src/config/business/*.json`
+- Persistencia basica para sesiones, reservas y handoffs
+- Reservas con `id`, `status`, `createdAt`, `businessId`, `userId` y datos capturados
+- Endpoints admin minimos listos para proteger con `ADMIN_API_KEY`
+- Base de tests ejecutable con `npm test`
+- Despliegue listo para Railway
+
+## Estructura del proyecto
+
+```text
+.
+|-- assets/
+|-- data/
+|-- src/
+|   |-- app/
+|   |   |-- createApp.js
+|   |   |-- createDependencies.js
+|   |   `-- httpUtils.js
+|   |-- bot/
+|   |   |-- aviatorBot.js
+|   |   `-- bot.js
+|   |-- config/
+|   |   |-- aviatorConfig.js
+|   |   |-- loadBusiness.js
+|   |   |-- loadEnv.js
+|   |   `-- business/
+|   |       |-- _template.json
+|   |       |-- aviator.json
+|   |       `-- demo.json
+|   |-- integrations/
+|   |   |-- openai/
+|   |   `-- ultramsg/
+|   |-- middleware/
+|   |   `-- adminAuth.js
+|   |-- routes/
+|   |   |-- adminRoutes.js
+|   |   |-- publicRoutes.js
+|   |   `-- webhookRoutes.js
+|   |-- services/
+|   |   |-- conversationService.js
+|   |   |-- handoffService.js
+|   |   `-- reservationService.js
+|   |-- storage/
+|   |   |-- adapters/
+|   |   |   |-- jsonFileStorageAdapter.js
+|   |   |   `-- memoryStorageAdapter.js
+|   |   |-- createStorageAdapter.js
+|   |   `-- defaultState.js
+|   |-- store/
+|   |   `-- sessionStore.js
+|   |-- utils/
+|   |   |-- dateTime.js
+|   |   |-- records.js
+|   |   `-- text.js
+|   |-- validators/
+|   |   `-- businessConfigValidator.js
+|   `-- index.js
+|-- test/
+|   |-- helpers.js
+|   `-- run-tests.js
+|-- .env.example
+|-- index.js
+|-- package.json
+`-- railway.json
+```
 
 ## Requisitos
 
 - Node.js 18 o superior
 
-## Instalacion
+## Instalacion local
 
-En PowerShell puede que `npm` este bloqueado por la politica de ejecucion. En ese caso usa `npm.cmd`.
+En PowerShell puede que `npm` este bloqueado por la politica de ejecucion. Si pasa eso, usa `npm.cmd`.
 
 ```powershell
-npm.cmd install
 Copy-Item .env.example .env
+npm.cmd install
 npm.cmd run dev
 ```
 
-Tambien puedes iniciar en modo normal:
+Para ejecucion normal:
 
 ```powershell
 npm.cmd start
 ```
 
-## Despliegue en Railway
+## Variables de entorno
 
-El proyecto arranca desde el entrypoint de raiz `index.js`, que delega al servidor real en `src/index.js`.
+Variables principales:
 
-Archivos relevantes para Railway:
+- `PORT`: puerto del servidor. Default `3000`.
+- `BASE_URL`: URL publica base para enlaces como el PDF del menu.
+- `BUSINESS_ID`: negocio activo. Default `aviator`.
+- `BUSINESS_SLUG`: alias legacy soportado como fallback.
+- `STORAGE_DRIVER`: `file` o `memory`. Default `file`.
+- `STORAGE_FILE_PATH`: ruta del JSON local. Default `./data/storage.json`.
+- `ADMIN_API_KEY`: si se define, protege `/api/admin/*`.
+- `WHATSAPP_VERIFY_TOKEN`: token para verificar el webhook de Cloud API.
 
-- `package.json`: usa `npm start`
-- `index.js`: entrypoint estable del proyecto
-- `src/index.js`: servidor Express real
-- `railway.json`: fija `startCommand` y healthcheck en `/health`
+IA opcional con Groq:
 
-Si en Railway habias configurado manualmente `node src/index.js`, puedes dejar que tome la configuracion del repo o cambiarlo a `npm start`.
+- `GROQ_API_KEY`
+- `GROQ_MODEL`
+- `GROQ_REQUEST_TIMEOUT_MS`
+- `GROQ_API_BASE_URL`
 
-### Variables de entorno recomendadas en Railway
+Integraciones opcionales:
 
-- `PORT`: Railway la inyecta automaticamente.
-- `BASE_URL`: recomendada para generar enlaces publicos estables al PDF del menu.
-- `GROQ_API_KEY`: requerida si quieres respuestas flexibles con IA.
-- `GROQ_MODEL`: opcional.
-- `GROQ_REQUEST_TIMEOUT_MS`: opcional.
-- `ULTRAMSG_INSTANCE_ID`: requerido solo si usaras `POST /webhook-ultramsg`.
-- `ULTRAMSG_TOKEN`: requerido solo si usaras `POST /webhook-ultramsg`.
-- `ULTRAMSG_API_BASE_URL`: opcional.
-- `WHATSAPP_VERIFY_TOKEN`: requerido solo si usaras el webhook de Meta Cloud API.
+- `ULTRAMSG_INSTANCE_ID`
+- `ULTRAMSG_TOKEN`
+- `ULTRAMSG_API_BASE_URL`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_WHATSAPP_NUMBER`
 
-Las variables de Twilio estan como placeholders en `.env.example`, pero el codigo actual no depende de ellas para arrancar.
+## Negocio activo
+
+La plantilla carga un solo negocio activo por proceso.
+
+Ejemplo:
+
+```env
+BUSINESS_ID=aviator
+```
+
+Si `BUSINESS_ID` no existe, se usa `aviator`.
+
+## Como crear un negocio nuevo
+
+1. Copia `src/config/business/_template.json`.
+2. Renombra el archivo a `src/config/business/<tu-id>.json`.
+3. Ajusta al menos estos campos:
+   - `id`
+   - `name`
+   - `location`
+   - `contact`
+   - `hours`
+   - `menu`
+   - `reservation`
+4. Cambia `BUSINESS_ID=<tu-id>` en `.env`.
+5. Reinicia el servidor.
+
+### Campos obligatorios del JSON
+
+- `id`
+- `name`
+- `location.text` o `location.address`
+- `contact.primaryPhone` o `contact.text`
+- `hours.summary` o `hours.text`
+- `menu.label`
+- `reservation.label`
+- `reservation.optionLabel`
+- `reservation.openingTime`
+- `reservation.cutoffTime`
+- `reservation.successMessage`
+
+### Campos opcionales pero recomendados
+
+- `description`
+- `tone`
+- `menu.pdfFilename`
+- `menu.pdfPath`
+- `menu.links`
+- `faqs`
+- `quickAnswers`
+- `ai.confirmedFacts`
+- `ai.rules`
+- `reservation.duplicateMessage`
+
+## Validacion de configuracion
+
+Todos los JSON dentro de `src/config/business/` se validan al arrancar.
+
+Si falta un campo critico o el esquema es invalido, el servidor falla con un error claro antes de levantar Express.
+
+Ejemplos de validacion:
+
+- id obligatorio
+- horario de reserva con formato `HH:MM`
+- `openingTime <= cutoffTime`
+- `menu.pdfFilename` y `menu.pdfPath` deben existir juntos
+- `faqs` y `quickAnswers` deben tener `question` y `answer`
+
+## Persistencia
+
+La plantilla soporta dos drivers:
+
+- `memory`: util para pruebas o sesiones efimeras
+- `file`: guarda estado en un JSON local y es el valor por defecto
+
+El storage persiste:
+
+- sesiones y contexto minimo por usuario
+- historial de conversacion guardado en la sesion
+- reservas
+- handoffs a humano
+
+Archivo por defecto:
+
+```text
+data/storage.json
+```
+
+## Reservas
+
+El flujo actual se mantiene, pero ahora al confirmar una reserva:
+
+- se crea un `id`
+- se guarda `status: pending`
+- se registra `createdAt`
+- se asocia `businessId` y `userId`
+- se persisten los datos capturados
+
+Tambien hay validacion minima de duplicados obvios para evitar reservas pendientes repetidas con los mismos datos.
+
+## Handoff a humano
+
+Cuando el usuario pide hablar con una persona:
+
+- se crea un registro persistente de handoff
+- se guarda `userId`
+- se guarda `businessId`
+- se guarda `reason`
+- se guarda `requestedAt`
+- se guarda `status: pending`
+
+Si ya existe un handoff pendiente para ese usuario y negocio, se reutiliza en vez de duplicarlo.
 
 ## Endpoints principales
 
+Salud y pruebas:
+
+- `GET /`
 - `GET /health`
-- `GET /api/menu-pdf`
 - `POST /api/test/message`
 - `GET /api/test/conversations/:userId`
+
+Admin:
+
+- `GET /api/admin/reservations`
+- `GET /api/admin/reservations/:id`
+- `GET /api/admin/handoffs`
+- `GET /api/admin/conversations/:userId`
+
+Webhooks:
+
 - `POST /webhooks/whatsapp/test`
 - `POST /webhooks/whatsapp/twilio`
 - `GET /webhooks/whatsapp/cloud-api`
 - `POST /webhooks/whatsapp/cloud-api`
 - `POST /webhook-ultramsg`
 
-## Simular mensajes
+## Seguridad basica de endpoints admin
 
-### 1. Primer contacto
+Si defines `ADMIN_API_KEY`, debes enviar el valor en alguno de estos headers:
+
+- `x-admin-api-key: <tu-clave>`
+- `Authorization: Bearer <tu-clave>`
+
+Si `ADMIN_API_KEY` no esta definida:
+
+- los endpoints admin quedan accesibles sin autenticacion
+- el servidor muestra un warning al arrancar
+
+## Como probar mensajes localmente
+
+### Saludo inicial
 
 ```powershell
 Invoke-RestMethod `
@@ -84,7 +295,7 @@ Invoke-RestMethod `
   -Body '{"userId":"59170000001","message":"hola"}'
 ```
 
-### 2. Ver menu
+### Ver menu o catalogo
 
 ```powershell
 Invoke-RestMethod `
@@ -94,86 +305,110 @@ Invoke-RestMethod `
   -Body '{"userId":"59170000001","message":"1"}'
 ```
 
-### 3. Flujo de reserva paso a paso
+### Reserva paso a paso
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"hola"}'
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"2"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"4"}'
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"Carlos Rojas"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"15/04/2026"}'
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"4"}'
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"manana"}'
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"19:00"}'
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/test/message -ContentType 'application/json' -Body '{"userId":"59170000002","message":"si"}'
 ```
 
-### 4. Ver conversacion de un usuario
+### Pedir humano
 
 ```powershell
 Invoke-RestMethod `
-  -Method Get `
-  -Uri http://localhost:3000/api/test/conversations/59170000002
+  -Method Post `
+  -Uri http://localhost:3000/api/test/message `
+  -ContentType 'application/json' `
+  -Body '{"userId":"59170000003","message":"quiero hablar con un humano"}'
 ```
 
-## Integracion futura con WhatsApp real
+## Como consultar reservas y handoffs
 
-### UltraMsg
+Sin `ADMIN_API_KEY`:
 
-La ruta `POST /webhook-ultramsg` ya recibe el payload tipico de UltraMsg con `data.from` y `data.body`, reutiliza la logica del bot en `src/bot/bot.js` y responde al mismo chat usando `messages/chat`.
-
-Configura estas variables en tu `.env`:
-
-```env
-PORT=3000
-BASE_URL=https://superjet-flatware-unjustly.ngrok-free.dev
-ULTRAMSG_INSTANCE_ID=tu_instance_id
-ULTRAMSG_TOKEN=tu_token
-ULTRAMSG_API_BASE_URL=https://api.ultramsg.com
+```powershell
+Invoke-RestMethod -Method Get -Uri http://localhost:3000/api/admin/reservations
+Invoke-RestMethod -Method Get -Uri http://localhost:3000/api/admin/handoffs
+Invoke-RestMethod -Method Get -Uri http://localhost:3000/api/admin/conversations/59170000002
 ```
 
-Luego apunta el webhook de UltraMsg a:
+Con `ADMIN_API_KEY`:
 
-```text
-https://superjet-flatware-unjustly.ngrok-free.dev/webhook-ultramsg
+```powershell
+$headers = @{ "x-admin-api-key" = "tu-clave-admin" }
+Invoke-RestMethod -Method Get -Uri http://localhost:3000/api/admin/reservations -Headers $headers
+Invoke-RestMethod -Method Get -Uri http://localhost:3000/api/admin/handoffs -Headers $headers
 ```
-
-Notas de comportamiento:
-
-- Si llega un texto simple como `hola`, `1`, `2`, `reservar` o `ubicacion`, el flujo actual del bot se mantiene.
-- Si el bot genera un documento PDF del menu, para UltraMsg se envia como texto con el enlace publico del PDF, porque esta integracion usa `messages/chat`.
-
-### Twilio
-
-La ruta `POST /webhooks/whatsapp/twilio` ya acepta el formato tipico de campos `From` y `Body`. En una integracion real:
-
-1. Configuras el webhook del sandbox o numero de Twilio hacia esa URL.
-2. Reemplazas la respuesta local por el envio real si quieres mensajes salientes asincronos.
-3. Mantienes la logica de negocio en `src/bot/bot.js`.
-
-### WhatsApp Cloud API
-
-La ruta `GET /webhooks/whatsapp/cloud-api` sirve para verificar el webhook.
-
-La ruta `POST /webhooks/whatsapp/cloud-api` ya extrae un mensaje entrante de la estructura principal de Meta. En una integracion real:
-
-1. Validas la firma del webhook.
-2. Tomas los `outboundMessages` generados por el bot.
-3. Los envias a la API de WhatsApp Cloud con tus credenciales.
 
 ## Integracion con Groq
 
-El backend sigue usando `src/integrations/openai/openaiService.js` para minimizar cambios, pero ahora apunta a Groq usando la API compatible con OpenAI y el SDK oficial `openai`.
+La integracion de IA es opcional.
 
-Comportamiento actual:
+Comportamiento:
 
-- Usa `GROQ_API_KEY` desde el backend
-- Usa `GROQ_MODEL` para definir el modelo de la demo gratis
-- Envia prompt de sistema dinamico segun el negocio activo
-- Envia los ultimos 10 mensajes del historial con roles `system`, `user` y `assistant`
-- Mantiene respuestas fijas para menu, reserva, ubicacion y opciones principales
-- Usa Groq para consultas abiertas, FAQs y mensajes que no caen en intents fijos
-- Si Groq falla, responde con un mensaje amable sin romper el webhook
+- si el mensaje no cae en intents fijos, el backend puede usar Groq como fallback
+- si no existe `GROQ_API_KEY`, el flujo sigue funcionando sin romperse
+- si Groq falla, el sistema responde con un fallback seguro
 
-## Notas
+## Railway
 
-- El almacenamiento actual es en memoria. Si reinicias el servidor, se pierde el contexto.
-- El proyecto esta pensado como demo local, no como sistema de produccion.
+El proyecto sigue preparado para Railway:
+
+- `index.js` en raiz es el entrypoint estable
+- `src/index.js` levanta la app real
+- `railway.json` mantiene el arranque y healthcheck
+
+Configuracion recomendada en Railway:
+
+- `PORT`: Railway la inyecta
+- `BASE_URL`: URL publica de la app
+- `BUSINESS_ID`
+- `STORAGE_DRIVER=file`
+- `STORAGE_FILE_PATH=./data/storage.json`
+- `ADMIN_API_KEY`
+- variables opcionales de Groq o proveedor WhatsApp
+
+## Tests
+
+Ejecuta:
+
+```powershell
+npm.cmd test
+```
+
+Cobertura base incluida:
+
+- carga de configuracion de negocio
+- validacion de config
+- flujo basico de reserva
+- validacion de horario permitido
+- creacion de handoff
+
+## Compatibilidad mantenida
+
+Se mantienen funcionando:
+
+- `GET /health`
+- `POST /api/test/message`
+- `GET /api/test/conversations/:userId`
+- webhooks existentes
+- negocio de ejemplo Aviator
+
+Cambio importante:
+
+- ahora se recomienda `BUSINESS_ID` en vez de `BUSINESS_SLUG`
+- `BUSINESS_SLUG` sigue soportado como fallback legacy
+
+## Siguiente paso natural para una v2
+
+- mover storage a PostgreSQL, MySQL o Redis
+- autenticacion real para endpoints admin
+- panel interno para reservas y handoffs
+- estado de reservas editable desde API
+- colas/eventos para notificaciones
+- multi-tenant real en un solo proceso

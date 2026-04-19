@@ -65,9 +65,19 @@ const PAYMENT_KEYWORDS = ["pago", "pagos", "tarjeta", "efectivo", "qr"];
 const CANCEL_KEYWORDS = ["cancelar", "cancel", "salir", "volver", "mejor no", "luego seguimos", "pausa", "pausar"];
 
 let activeBusinessConfig = defaultBusinessConfig;
+let activeReservationService = null;
+let activeHandoffService = null;
 
 function getBusinessConfig() {
   return activeBusinessConfig;
+}
+
+function getReservationService() {
+  return activeReservationService;
+}
+
+function getHandoffService() {
+  return activeHandoffService;
 }
 
 function createTextMessage(text) {
@@ -196,7 +206,15 @@ function buildMenuHighlightsText() {
 }
 
 function buildContactText() {
-  return [getBusinessConfig().contact.text, getBusinessConfig().hours.text].filter(Boolean).join("\n\n");
+  return Array.from(
+    new Set(
+      [
+        getBusinessConfig().location?.text,
+        getBusinessConfig().contact.text,
+        getBusinessConfig().hours.text
+      ].filter(Boolean)
+    )
+  ).join("\n\n");
 }
 
 function buildConditionsText() {
@@ -231,14 +249,26 @@ function buildReservationDirectContactText() {
   return `Si prefieres gestionar tu ${getBookingLabel()} por llamada o con atencion directa, puedes comunicarte directamente con ${getBusinessConfig().name} al ${phone}.`;
 }
 
-function buildHumanSupportText() {
+function buildHumanSupportText(handoffResult = null) {
+  const registrationText = handoffResult
+    ? handoffResult.created
+      ? "He dejado registrada tu solicitud de atencion humana para revision."
+      : "Tu solicitud de atencion humana ya estaba registrada y sigue pendiente."
+    : "";
   const phone = getPrimaryPhone();
 
   if (!phone) {
-    return `Si prefieres atencion directa, puedes comunicarte con ${getBusinessConfig().name}.`;
+    return [registrationText, `Si prefieres atencion directa, puedes comunicarte con ${getBusinessConfig().name}.`]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
-  return `Si prefieres atencion directa, puedes comunicarte con ${getBusinessConfig().name} al ${phone}.`;
+  return [
+    registrationText,
+    `Si prefieres atencion directa, puedes comunicarte con ${getBusinessConfig().name} al ${phone}.`
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function buildPaymentsText() {
@@ -342,7 +372,43 @@ ${lines.join("\n")}
 Esta correcto?`;
 }
 
-function buildReservationSummary() {
+function buildSessionReservationSnapshot(reservationOrDraft) {
+  if (!reservationOrDraft) {
+    return null;
+  }
+
+  if (!reservationOrDraft.data) {
+    return { ...reservationOrDraft };
+  }
+
+  return {
+    id: reservationOrDraft.id,
+    status: reservationOrDraft.status,
+    businessId: reservationOrDraft.businessId,
+    userId: reservationOrDraft.userId,
+    createdAt: reservationOrDraft.createdAt,
+    updatedAt: reservationOrDraft.updatedAt,
+    ...reservationOrDraft.data
+  };
+}
+
+function buildReservationSummary(reservationResult) {
+  if (reservationResult?.duplicate && reservationResult.reservation?.id) {
+    const configuredDuplicateMessage = String(
+      getBusinessConfig().reservation?.duplicateMessage || ""
+    ).trim();
+
+    if (configuredDuplicateMessage) {
+      return `${configuredDuplicateMessage} ID de seguimiento: ${reservationResult.reservation.id}.`;
+    }
+
+    return `Ya tengo una ${getBookingLabel()} pendiente con datos muy similares. ID de seguimiento: ${reservationResult.reservation.id}. Si necesitas cambiarla, pide atencion humana.`;
+  }
+
+  if (reservationResult?.reservation?.id) {
+    return `${getBusinessConfig().reservation.successMessage} ID de seguimiento: ${reservationResult.reservation.id}.`;
+  }
+
   return getBusinessConfig().reservation.successMessage;
 }
 
@@ -701,6 +767,21 @@ function buildReservationExitText() {
   return `Claro. Salimos del proceso de ${getBookingLabel()}. Si quieres, puedo ayudarte con ${getMenuLabel()}, horarios o informacion del negocio.`;
 }
 
+function registerHumanHandoffRequest(session, rawText, source = "bot") {
+  const handoffService = getHandoffService();
+
+  if (!handoffService) {
+    return null;
+  }
+
+  return handoffService.createHandoffRequest({
+    userId: session.userId,
+    businessId: getBusinessConfig().id,
+    reason: rawText,
+    source
+  });
+}
+
 function buildReservationNamePrompt(includeIntro = false) {
   const question = `A nombre de quien quedaria la ${getBookingLabel()}?`;
 
@@ -760,6 +841,10 @@ function isReservationCorrectionReply(normalizedText) {
   return [/\bno\b/, /\bmejor\b/, /\bcambiar\b/, /\bcorregir\b/, /\bmodificar\b/].some((pattern) =>
     pattern.test(normalizedText)
   );
+}
+
+function isSimpleNumericReply(normalizedText) {
+  return /^\d{1,2}$/.test(normalizedText);
 }
 
 function getNextReservationStep(reservationDraft = {}) {
@@ -1123,11 +1208,22 @@ function finalizeReservationWithCapture(session) {
     ];
   }
 
+  const reservationResult = getReservationService()
+    ? getReservationService().createReservation({
+        userId: session.userId,
+        businessId: getBusinessConfig().id,
+        data: session.reservationDraft,
+        source: "bot"
+      })
+    : null;
+
   session.currentFlow = null;
   session.reservationStep = null;
-  session.lastReservation = { ...session.reservationDraft };
+  session.lastReservation = buildSessionReservationSnapshot(
+    reservationResult?.reservation || session.reservationDraft
+  );
 
-  const summary = buildReservationSummary();
+  const summary = buildReservationSummary(reservationResult);
   session.reservationDraft = {};
 
   return [createTextMessage(summary)];
@@ -1204,10 +1300,14 @@ function handleReservationStepWithCapture(session, rawText, currentStep, options
   ];
 }
 
-function beginReservationFlowWithCapture(session, rawText) {
+function beginReservationFlowWithCapture(session, rawText, options = {}) {
   session.currentFlow = "reservation";
   session.reservationStep = "name";
   session.reservationDraft = {};
+
+  if (options.ignoreInitialCapture) {
+    return [createTextMessage(buildReservationNamePrompt(true))];
+  }
 
   return handleReservationStepWithCapture(session, rawText, "name", {
     preferPromptOnCurrentStep: true,
@@ -1215,12 +1315,14 @@ function beginReservationFlowWithCapture(session, rawText) {
   });
 }
 
-function matchReservationFlowAction(normalizedText) {
+function matchReservationFlowAction(currentStep, normalizedText) {
+  const protectNumericPartySize = currentStep === "partySize" && isSimpleNumericReply(normalizedText);
+
   if (isCallIntent(normalizedText)) {
     return "call";
   }
 
-  if (isHumanRequest(normalizedText)) {
+  if (!protectNumericPartySize && isHumanRequest(normalizedText)) {
     return "human";
   }
 
@@ -1228,11 +1330,11 @@ function matchReservationFlowAction(normalizedText) {
     return "exit";
   }
 
-  if (isConditionsIntent(normalizedText)) {
+  if (!protectNumericPartySize && isConditionsIntent(normalizedText)) {
     return "conditions";
   }
 
-  if (isInfoIntent(normalizedText)) {
+  if (!protectNumericPartySize && isInfoIntent(normalizedText)) {
     return "info";
   }
 
@@ -1244,7 +1346,7 @@ function matchReservationFlowAction(normalizedText) {
 }
 
 async function handleReservationFlow(sessionStore, session, rawText, normalizedText) {
-  const flowAction = matchReservationFlowAction(normalizedText);
+  const flowAction = matchReservationFlowAction(session.reservationStep, normalizedText);
 
   if (flowAction === "call") {
     sessionStore.resetReservationState(session.userId);
@@ -1253,7 +1355,11 @@ async function handleReservationFlow(sessionStore, session, rawText, normalizedT
 
   if (flowAction === "human") {
     sessionStore.resetReservationState(session.userId);
-    return [createTextMessage(buildHumanSupportText())];
+    return [
+      createTextMessage(
+        buildHumanSupportText(registerHumanHandoffRequest(session, rawText, "reservation_flow"))
+      )
+    ];
   }
 
   if (flowAction === "exit") {
@@ -1317,15 +1423,27 @@ async function handleTopLevelMessage(session, rawText, normalizedText, baseUrl) 
 
   switch (strictIntent) {
     case "reservationDirectContact":
+      if (isHumanRequest(normalizedText)) {
+        return [
+          createTextMessage(
+            buildHumanSupportText(registerHumanHandoffRequest(session, rawText, "reservation_direct_contact"))
+          )
+        ];
+      }
+
       return [createTextMessage(buildReservationDirectContactText())];
     case "call":
       return [createTextMessage(buildCallRedirectText())];
     case "human":
-      return [createTextMessage(buildHumanSupportText())];
+      return [
+        createTextMessage(buildHumanSupportText(registerHumanHandoffRequest(session, rawText, "top_level")))
+      ];
     case "menu":
       return buildMenuMessages(baseUrl);
     case "reservation":
-      return beginReservationFlowWithCapture(session, rawText);
+      return beginReservationFlowWithCapture(session, rawText, {
+        ignoreInitialCapture: normalizedText === "2"
+      });
     case "info":
       return [createTextMessage(buildContactText())];
     case "conditions":
@@ -1376,9 +1494,16 @@ function sanitizeSession(session) {
   };
 }
 
-// Bot reusable: para cambiar de negocio solo cambia BUSINESS_SLUG o el JSON del cliente.
-function createBot({ sessionStore, business = defaultBusinessConfig }) {
+// Bot reusable: para cambiar de negocio solo cambia BUSINESS_ID o el JSON del cliente.
+function createBot({
+  sessionStore,
+  business = defaultBusinessConfig,
+  reservationService = null,
+  handoffService = null
+}) {
   activeBusinessConfig = business;
+  activeReservationService = reservationService;
+  activeHandoffService = handoffService;
 
   return {
     async handleIncomingMessage({ userId, text, baseUrl }) {

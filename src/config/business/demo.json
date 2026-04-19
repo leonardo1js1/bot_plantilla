@@ -1,12 +1,17 @@
 {
-  "slug": "demo",
+  "id": "demo",
   "name": "Demo Barber Studio",
   "type": "barberia urbana",
-  "description": "Barberia de ejemplo para demostrar que el mismo bot puede reutilizarse en otro negocio sin cambiar la logica.",
+  "description": "Barberia de ejemplo para demostrar que el mismo backend puede reutilizarse en otro negocio sin cambiar la logica principal.",
   "tone": "cercano, claro, profesional y breve",
+  "location": {
+    "text": "Direccion:\nAv. Demo 123, local 4.\nSanta Cruz de la Sierra.",
+    "address": "Av. Demo 123, local 4",
+    "city": "Santa Cruz de la Sierra"
+  },
   "contact": {
     "primaryPhone": "70000000",
-    "text": "Informacion de Demo Barber Studio\n\nDireccion:\nAv. Demo 123, local 4.\nSanta Cruz de la Sierra.\n\nReservas y consultas:\n70000000"
+    "text": "Reservas y consultas:\n70000000"
   },
   "hours": {
     "summary": "Lunes a sabado de 09:00 a.m. a 08:00 p.m.",
@@ -62,7 +67,8 @@
       "Si llegas tarde, el horario puede ser reasignado.",
       "Para cambios o cancelaciones, escribe con anticipacion."
     ],
-    "successMessage": "Perfecto. Tu cita quedo registrada. Un encargado la confirmara en breve."
+    "successMessage": "Perfecto. Tu cita quedo registrada. Un encargado la confirmara en breve.",
+    "duplicateMessage": "Ya existe una cita pendiente con esos datos."
   },
   "ai": {
     "fallbackReply": "Ahora mismo no pude procesar esa consulta. Si quieres, puedo ayudarte con una cita, horarios o el catalogo de servicios de Demo Barber Studio.",

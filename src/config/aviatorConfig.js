@@ -1,4 +1,4 @@
 const { loadBusiness } = require("./loadBusiness");
 
-// Shim de compatibilidad: este archivo mantiene el import legado del cliente por defecto.
+// Shim de compatibilidad: mantiene el import legado del negocio de ejemplo.
 module.exports = loadBusiness("aviator");
