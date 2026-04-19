@@ -30,6 +30,55 @@ function buildValidDate(year, month, day) {
   return isSameDate ? date : null;
 }
 
+const WEEKDAY_INDEXES = {
+  domingo: 0,
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6
+};
+
+const WEEKDAY_PATTERN = Object.keys(WEEKDAY_INDEXES).join("|");
+
+function normalizeDateText(rawValue = "") {
+  return normalizeText(String(rawValue).trim())
+    .replace(/[,.;!?]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isFocusedDateInput(rawValue = "") {
+  const normalizedValue = normalizeDateText(rawValue);
+
+  if (!normalizedValue) {
+    return false;
+  }
+
+  const relativeDatePattern = `(?:anteayer|ayer|hoy|pasado manana|manana)`;
+  const weekdayReferencePattern = `(?:${WEEKDAY_PATTERN}|este\\s+(?:${WEEKDAY_PATTERN})|el\\s+(?:${WEEKDAY_PATTERN}))`;
+  const directDatePatterns = [
+    /^\d{4}-\d{1,2}-\d{1,2}$/,
+    /^\d{1,2}(?:[/-]|\s)\d{1,2}(?:[/-]|\s)\d{4}$/,
+    new RegExp(`^(?:para\\s+)?${relativeDatePattern}$`),
+    new RegExp(`^(?:para\\s+)?${weekdayReferencePattern}$`)
+  ];
+
+  if (directDatePatterns.some((pattern) => pattern.test(normalizedValue))) {
+    return true;
+  }
+
+  const prefixedDatePatterns = [
+    `(?:la\\s+fecha\\s+es|fecha|es|sera|seria|puede\\s+ser|podria\\s+ser)\\s+(?:para\\s+)?${relativeDatePattern}`,
+    `(?:la\\s+fecha\\s+es|fecha|es|sera|seria|puede\\s+ser|podria\\s+ser)\\s+(?:para\\s+)?${weekdayReferencePattern}`,
+    `(?:la\\s+fecha\\s+es|fecha|es|sera|seria|puede\\s+ser|podria\\s+ser)\\s+\\d{4}-\\d{1,2}-\\d{1,2}`,
+    `(?:la\\s+fecha\\s+es|fecha|es|sera|seria|puede\\s+ser|podria\\s+ser)\\s+\\d{1,2}(?:[/-]|\\s)\\d{1,2}(?:[/-]|\\s)\\d{4}`
+  ].map((pattern) => new RegExp(`^${pattern}$`));
+
+  return prefixedDatePatterns.some((pattern) => pattern.test(normalizedValue));
+}
+
 function extractExplicitDate(rawValue = "") {
   const value = String(rawValue)
     .trim()
@@ -57,26 +106,37 @@ function extractExplicitDate(rawValue = "") {
 }
 
 function resolveWeekdayReference(rawValue = "") {
-  const normalizedValue = normalizeText(String(rawValue).trim())
-    .replace(/[,.;!?]+/g, " ")
-    .replace(/\s+/g, " ");
-  const weekdayMatch = normalizedValue.match(/\b(?:este|el)\s+(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+  const normalizedValue = normalizeDateText(rawValue);
 
-  if (!weekdayMatch) {
+  if (!normalizedValue) {
     return null;
   }
 
-  const weekdays = {
-    domingo: 0,
-    lunes: 1,
-    martes: 2,
-    miercoles: 3,
-    jueves: 4,
-    viernes: 5,
-    sabado: 6
-  };
+  const standaloneMatch = normalizedValue.match(new RegExp(`^(${WEEKDAY_PATTERN})$`));
+  let weekdayName = standaloneMatch ? standaloneMatch[1] : null;
+
+  if (!weekdayName) {
+    const prefixedPatterns = [
+      new RegExp(`\\b(?:este|el)\\s+(${WEEKDAY_PATTERN})\\b`),
+      new RegExp(`\\bpara\\s+(?:este\\s+|el\\s+)?(${WEEKDAY_PATTERN})\\b`)
+    ];
+
+    for (const pattern of prefixedPatterns) {
+      const match = normalizedValue.match(pattern);
+
+      if (match) {
+        weekdayName = match[1];
+        break;
+      }
+    }
+  }
+
+  if (!weekdayName) {
+    return null;
+  }
+
   const today = startOfDay(new Date());
-  const targetDay = weekdays[weekdayMatch[1]];
+  const targetDay = WEEKDAY_INDEXES[weekdayName];
 
   if (targetDay === undefined) {
     return null;
@@ -87,22 +147,25 @@ function resolveWeekdayReference(rawValue = "") {
 }
 
 function extractRelativeDate(rawValue = "") {
-  const normalizedValue = normalizeText(String(rawValue).trim())
-    .replace(/[,.;!?]+/g, " ")
-    .replace(/\s+/g, " ");
+  const normalizedValue = normalizeDateText(rawValue);
 
   if (!normalizedValue) {
     return null;
   }
 
   const today = startOfDay(new Date());
+  const relativePatterns = [
+    { pattern: /\banteayer\b/, offset: -2 },
+    { pattern: /\bayer\b/, offset: -1 },
+    { pattern: /\bhoy\b/, offset: 0 },
+    { pattern: /\bpasado manana\b/, offset: 2 },
+    { pattern: /\bmanana\b/, offset: 1 }
+  ];
 
-  if (/\bpasado manana\b/.test(normalizedValue)) {
-    return addDays(today, 2);
-  }
-
-  if (/\bmanana\b/.test(normalizedValue)) {
-    return addDays(today, 1);
+  for (const { pattern, offset } of relativePatterns) {
+    if (pattern.test(normalizedValue)) {
+      return addDays(today, offset);
+    }
   }
 
   return resolveWeekdayReference(normalizedValue);
@@ -158,6 +221,28 @@ function extractTimeParts(rawValue = "") {
   }
 
   return value.match(/(?:^|[^\d])(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+}
+
+function normalizeTimeText(rawValue = "") {
+  return normalizeText(String(rawValue).trim())
+    .replace(/(\d)\.(\d)/g, "$1:$2")
+    .replace(/[,.;!?]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isFocusedTimeInput(rawValue = "") {
+  const value = normalizeTimeText(rawValue);
+
+  if (!value) {
+    return false;
+  }
+
+  return [
+    /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/,
+    /^(?:a\s+las|como\s+a\s+las|tipo)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/,
+    /^(?:la\s+hora\s+es|hora|es|sera|seria|puede\s+ser|podria\s+ser)\s+(?:a\s+las\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/
+  ].some((pattern) => pattern.test(value));
 }
 
 function buildParsedTimeResult(hours, minuteValue, extra = {}) {
@@ -285,5 +370,7 @@ module.exports = {
   isPastDate,
   isTimeWithinRange,
   isTimeAfterCutoff,
-  formatDateToDisplay
+  formatDateToDisplay,
+  isFocusedDateInput,
+  isFocusedTimeInput
 };

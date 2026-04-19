@@ -5,7 +5,9 @@ const {
   parseTimeInput,
   parseTimeInputWithRange,
   isPastDate,
-  isTimeWithinRange
+  isTimeWithinRange,
+  isFocusedDateInput,
+  isFocusedTimeInput
 } = require("../utils/dateTime");
 const { normalizeText } = require("../utils/text");
 
@@ -62,6 +64,8 @@ const CALL_REQUEST_KEYWORDS = [
   "por llamada"
 ];
 const PAYMENT_KEYWORDS = ["pago", "pagos", "tarjeta", "efectivo", "qr"];
+const HOURS_KEYWORDS = ["horario", "horarios", "hora", "horas", "abren", "cierran"];
+const RECOMMENDATION_KEYWORDS = ["recomienda", "recomiendas", "recomendacion", "recomendaciones"];
 const CANCEL_KEYWORDS = ["cancelar", "cancel", "salir", "volver", "mejor no", "luego seguimos", "pausa", "pausar"];
 
 let activeBusinessConfig = defaultBusinessConfig;
@@ -277,6 +281,71 @@ function buildPaymentsText() {
 ${buildHumanSupportText()}`;
 }
 
+function buildHoursText() {
+  return String(getBusinessConfig().hours?.text || "").trim() || buildContactText();
+}
+
+function findFaqAnswerByKeywords(keywords = []) {
+  const normalizedKeywords = uniqueNormalizedKeywords(keywords);
+
+  if (!normalizedKeywords.length) {
+    return null;
+  }
+
+  const matchingFaq = (getBusinessConfig().faqs || []).find((faq) => {
+    if (!faq?.question || !faq?.answer) {
+      return false;
+    }
+
+    const haystack = normalizeText(`${faq.question} ${faq.answer}`).replace(/\s+/g, " ").trim();
+    return haystack ? matchesAnyWholeKeyword(haystack, normalizedKeywords) : false;
+  });
+
+  return matchingFaq?.answer ? String(matchingFaq.answer).trim() : null;
+}
+
+function buildPaymentsFaqText(normalizedText) {
+  const paymentFaqAnswer = findFaqAnswerByKeywords([
+    ...PAYMENT_KEYWORDS,
+    "tarjetas",
+    "debito",
+    "credito",
+    "nfc"
+  ]);
+
+  if (!paymentFaqAnswer) {
+    return buildPaymentsText();
+  }
+
+  if (buildWholeKeywordPattern("qr").test(normalizedText) && !buildWholeKeywordPattern("qr").test(normalizeText(paymentFaqAnswer))) {
+    return `No tengo confirmado especificamente el QR. Sobre pagos tengo esto: ${paymentFaqAnswer}`;
+  }
+
+  return paymentFaqAnswer;
+}
+
+function buildRecommendationText() {
+  const recommendationHints = (getBusinessConfig().ai?.recommendationHints || [])
+    .map((hint) => String(hint || "").trim())
+    .filter(Boolean);
+
+  if (recommendationHints.length) {
+    return recommendationHints.join(" ");
+  }
+
+  const highlights = (getBusinessConfig().menu?.highlights || []).filter(Boolean).slice(0, 3);
+
+  if (highlights.length) {
+    return `Si quieres una recomendacion rapida, puedes revisar estas opciones destacadas: ${highlights.join("; ")}.`;
+  }
+
+  return `Si quieres, puedo compartirte opciones destacadas del ${getMenuLabel()} para ayudarte a elegir sin salir de tu ${getBookingLabel()}.`;
+}
+
+function buildPricingText() {
+  return `Los precios dependen de la opcion. Te comparto nuestro ${getMenuLabel()} para que puedas revisarlos con detalle.`;
+}
+
 function buildInvalidOptionText() {
   return `Puedo ayudarte con ${getBookingLabelPlural()}, ${getMenuLabel()}, ubicacion y preguntas frecuentes. Si deseas ${getBookingLabel()}, escribe por ejemplo: ${getBusinessConfig().reservation.intentExample}.`;
 }
@@ -370,6 +439,57 @@ function buildReservationConfirmationText(reservationDraft) {
 ${lines.join("\n")}
 
 Esta correcto?`;
+}
+
+function buildReservationResumeText(session) {
+  const currentStep = session?.reservationStep || getNextReservationStep(session?.reservationDraft);
+  const pendingPrompt = buildReservationPromptForStep(currentStep, {
+    reservationDraft: session?.reservationDraft || {}
+  });
+
+  return `Ahora si, continuemos con tu ${getBookingLabel()}.
+
+${pendingPrompt}`;
+}
+
+function appendReservationResumePrompt(session, outboundMessages) {
+  return [...outboundMessages, createTextMessage(buildReservationResumeText(session))];
+}
+
+function buildReservationFaqMessages(session, action, normalizedText, baseUrl) {
+  switch (action) {
+    case "payments":
+      return appendReservationResumePrompt(session, [createTextMessage(buildPaymentsFaqText(normalizedText))]);
+    case "recommendation":
+      return appendReservationResumePrompt(session, [createTextMessage(buildRecommendationText())]);
+    case "hours":
+      return appendReservationResumePrompt(session, [createTextMessage(buildHoursText())]);
+    case "info":
+      return appendReservationResumePrompt(session, [createTextMessage(buildContactText())]);
+    case "conditions":
+      return appendReservationResumePrompt(session, [createTextMessage(buildConditionsText())]);
+    case "menu": {
+      const outboundMessages = [];
+
+      if (isPricingIntent(normalizedText)) {
+        outboundMessages.push(createTextMessage(buildPricingText()));
+      }
+
+      const servicesFaqAnswer =
+        /\bservicios?\b/.test(normalizedText) &&
+        !isPricingIntent(normalizedText)
+          ? findFaqAnswerByKeywords(["servicio", "servicios", "delivery", "domicilio", "retiro", "retiros"])
+          : null;
+
+      if (servicesFaqAnswer) {
+        outboundMessages.push(createTextMessage(servicesFaqAnswer));
+      }
+
+      return appendReservationResumePrompt(session, [...outboundMessages, ...buildMenuMessages(baseUrl)]);
+    }
+    default:
+      return null;
+  }
 }
 
 function buildSessionReservationSnapshot(reservationOrDraft) {
@@ -693,6 +813,34 @@ function isMenuIntent(message) {
   return requestPatterns.some((pattern) => pattern.test(normalizedText));
 }
 
+function isPricingIntent(normalizedText) {
+  return [
+    /\bprecio\b/,
+    /\bprecios\b/,
+    /\bcosto\b/,
+    /\bcostos\b/,
+    /\bcuanto\s+cuesta\b/,
+    /\bcuanto\s+cuestan\b/,
+    /\bcuanto\s+vale\b/,
+    /\bcuanto\s+valen\b/
+  ].some((pattern) => pattern.test(normalizedText));
+}
+
+function isMenuCatalogIntent(rawText, normalizedText) {
+  if (isMenuIntent(rawText) || isPricingIntent(normalizedText)) {
+    return true;
+  }
+
+  const menuAlternation = buildKeywordAlternation(getMenuKeywords());
+
+  return [
+    new RegExp(`\\b(?:que|cual(?:es)?)\\b.*\\b(?:${menuAlternation})\\b.*\\b(?:tienen|ofrecen|hay)\\b`),
+    new RegExp(`\\b(?:que|cual(?:es)?)\\b.*\\b(?:tienen|ofrecen|hay)\\b.*\\b(?:${menuAlternation})\\b`),
+    /\b(?:que|cual(?:es)?)\s+(?:servicios?|productos?)\s+(?:tienen|ofrecen|hay)\b/,
+    /\b(?:servicios?|productos?)\b.*\b(?:tienen|ofrecen|hay)\b/
+  ].some((pattern) => pattern.test(normalizedText));
+}
+
 function isReservationIntent(normalizedText) {
   if (normalizedText === "2") {
     return true;
@@ -747,7 +895,40 @@ function isReservationDirectContactIntent(normalizedText) {
 }
 
 function isPaymentsIntent(normalizedText) {
-  return isShortDirectKeywordIntent(normalizedText, PAYMENT_KEYWORDS);
+  return (
+    isShortDirectKeywordIntent(normalizedText, PAYMENT_KEYWORDS, 5) ||
+    [
+      /\b(?:aceptan|acepta|manejan|trabajan)\b.*\b(?:pagos?|qr|tarjeta|efectivo)\b/,
+      /\b(?:se\s+puede|puedo)\s+pagar\b/,
+      /\bformas?\s+de\s+pago\b/,
+      /\b(?:que|cuales)\b.*\b(?:metodos?|formas?)\s+de\s+pago\b/,
+      /\bpagar\b.*\b(?:qr|tarjeta|efectivo)\b/,
+      /\b(?:qr|tarjeta|efectivo)\b.*\b(?:aceptan|acepta)\b/
+    ].some((pattern) => pattern.test(normalizedText))
+  );
+}
+
+function isHoursIntent(normalizedText) {
+  return (
+    isShortDirectKeywordIntent(normalizedText, HOURS_KEYWORDS, 5) ||
+    [
+      /\b(?:que|cual(?:es)?)\b.*\bhorarios?\b/,
+      /\b(?:a\s+que\s+hora|que\s+hora)\b.*\b(?:abren|cierran)\b/,
+      /\bhorarios?\s+de\s+atencion\b/
+    ].some((pattern) => pattern.test(normalizedText))
+  );
+}
+
+function isRecommendationIntent(normalizedText) {
+  return (
+    isShortDirectKeywordIntent(normalizedText, RECOMMENDATION_KEYWORDS, 5) ||
+    [
+      /\b(?:que|cual(?:es)?)\b.*\brecomiendas?\b/,
+      /\b(?:que|cual(?:es)?)\b.*\brecomendacion(?:es)?\b/,
+      /\bme\s+recomiendas?\b/,
+      /\brecomiendame\b/
+    ].some((pattern) => pattern.test(normalizedText))
+  );
 }
 
 function isReservationExitIntent(normalizedText) {
@@ -831,6 +1012,122 @@ function shouldAttemptTimeExtraction(rawText, currentStep) {
   return /(?:\d:\d|am\b|pm\b|\ba las\b|\bcomo a las\b|\btipo\b)/.test(normalizedText);
 }
 
+function shouldCaptureReservationDate(rawText, currentStep) {
+  const normalizedText = normalizeText(cleanReservationInput(rawText));
+
+  if (!normalizedText) {
+    return false;
+  }
+
+  if (!isQuestionLikeReservationMessage(rawText, normalizedText)) {
+    return true;
+  }
+
+  return currentStep === "date" && isFocusedDateInput(rawText);
+}
+
+function shouldCaptureReservationTime(rawText, currentStep) {
+  if (!shouldAttemptTimeExtraction(rawText, currentStep)) {
+    return false;
+  }
+
+  const normalizedText = normalizeText(cleanReservationInput(rawText));
+
+  if (!normalizedText) {
+    return false;
+  }
+
+  if (!isQuestionLikeReservationMessage(rawText, normalizedText)) {
+    return true;
+  }
+
+  return currentStep === "time" && isFocusedTimeInput(rawText);
+}
+
+function buildEmptyReservationCorrectionResult() {
+  return {
+    updatedAny: false,
+    invalid: {
+      date: null,
+      time: null
+    }
+  };
+}
+
+function hasReservationCorrectionKeyword(normalizedText) {
+  return [
+    /\bmejor\b/,
+    /\bcambi(?:ar|o|as|a|amos|an|e|emos|en)\b/,
+    /\bcorregir\b/,
+    /\bcorrij(?:o|es|e|amos|an)\b/,
+    /\bmodific(?:ar|o|as|a|amos|an|e|emos|en)\b/,
+    /\bactualiz(?:ar|o|as|a|amos|an|e|emos|en)\b/,
+    /\bajust(?:ar|o|as|a|amos|an|e|emos|en)\b/,
+    /\breprogram(?:ar|o|as|a|amos|an|e|emos|en)\b/,
+    /\bmover\b/,
+    /\bmovamos\b/,
+    /\bmuevo\b/
+  ].some((pattern) => pattern.test(normalizedText));
+}
+
+function hasReservationCorrectionTarget(normalizedText) {
+  return /\b(?:nombre|persona|personas|cantidad|fecha|dia|hora)\b/.test(normalizedText);
+}
+
+function isQuestionLikeReservationMessage(rawText, normalizedText) {
+  if (/\?/.test(String(rawText || ""))) {
+    return true;
+  }
+
+  return /^(?:que|cual(?:es)?|como|cuando|donde|hay|tienen|tienes|aceptan|acepta|puedo|podemos|abren|cierran|horario|horarios)\b/.test(
+    normalizedText
+  );
+}
+
+function hasReservationCorrectionValue(rawText, currentStep) {
+  const parsedDate = parseDateInput(rawText);
+  const parsedTime = shouldAttemptTimeExtraction(rawText, currentStep)
+    ? parseReservationTime(rawText)
+    : { valid: false, reason: null };
+
+  return Boolean(
+    extractReservationName(rawText, {
+      allowShortReply: currentStep === "confirmation"
+    }) ||
+      extractReservationPartySize(rawText, {
+        allowSimpleNumericReply: false
+      }) ||
+      parsedDate.valid ||
+      parsedTime.valid ||
+      parsedTime.reason === "out_of_range"
+  );
+}
+
+function hasExplicitReservationCorrectionIntent(session, rawText, currentStep) {
+  const normalizedText = normalizeText(cleanReservationInput(rawText));
+
+  if (!normalizedText) {
+    return false;
+  }
+
+  if (hasReservationCorrectionKeyword(normalizedText)) {
+    return hasReservationCorrectionTarget(normalizedText) || hasReservationCorrectionValue(rawText, currentStep);
+  }
+
+  if (isQuestionLikeReservationMessage(rawText, normalizedText)) {
+    return false;
+  }
+
+  if (currentStep === "confirmation") {
+    return hasReservationCorrectionValue(rawText, currentStep);
+  }
+
+  return Boolean(
+    session.reservationDraft.partySize &&
+      /\b(?:somos|son|seriamos|seremos)\s+\d{1,2}(?:\s+personas?)?\b/.test(normalizedText)
+  );
+}
+
 function isReservationConfirmationReply(normalizedText) {
   return [/^si\b/, /^ok\b/, /^correcto\b/, /^esta bien\b/, /^confirmo\b/].some((pattern) =>
     pattern.test(normalizedText)
@@ -838,30 +1135,35 @@ function isReservationConfirmationReply(normalizedText) {
 }
 
 function isReservationCorrectionReply(normalizedText) {
-  return [/\bno\b/, /\bmejor\b/, /\bcambiar\b/, /\bcorregir\b/, /\bmodificar\b/].some((pattern) =>
-    pattern.test(normalizedText)
-  );
+  return /\bno\b/.test(normalizedText) || hasReservationCorrectionKeyword(normalizedText);
 }
 
 function isSimpleNumericReply(normalizedText) {
   return /^\d{1,2}$/.test(normalizedText);
 }
 
+const RESERVATION_STEPS = ["name", "partySize", "date", "time"];
+
+function isReservationStepCompleted(step, reservationDraft = {}) {
+  switch (step) {
+    case "name":
+      return Boolean(reservationDraft.name);
+    case "partySize":
+      return Boolean(reservationDraft.partySize);
+    case "date":
+      return Boolean(reservationDraft.date);
+    case "time":
+      return Boolean(reservationDraft.time);
+    default:
+      return false;
+  }
+}
+
 function getNextReservationStep(reservationDraft = {}) {
-  if (!reservationDraft.name) {
-    return "name";
-  }
-
-  if (!reservationDraft.partySize) {
-    return "partySize";
-  }
-
-  if (!reservationDraft.date) {
-    return "date";
-  }
-
-  if (!reservationDraft.time) {
-    return "time";
+  for (const step of RESERVATION_STEPS) {
+    if (!isReservationStepCompleted(step, reservationDraft)) {
+      return step;
+    }
   }
 
   return "confirmation";
@@ -928,20 +1230,36 @@ function formatReservationName(name) {
     .join(" ");
 }
 
-function isLikelyReservationName(name) {
+function isLikelyReservationName(name, options = {}) {
+  const { allowShortReply = false } = options;
+
   if (!name || name.length < 2 || name.length > 60) {
     return false;
   }
 
-  const normalizedName = normalizeText(name);
+  const normalizedName = normalizeText(cleanReservationInput(name)).replace(/\s+/g, " ").trim();
   const blockedWords = new Set(
     uniqueNormalizedKeywords([
       ...getBookingKeywords(),
+      ...INFO_KEYWORDS,
+      ...PAYMENT_KEYWORDS,
+      getMenuLabel(),
+      "menu",
+      "carta",
       "persona",
       "personas",
       "cantidad",
       "fecha",
+      "que",
+      "cual",
+      "cuales",
+      "como",
+      "cuando",
+      "quien",
+      "quienes",
       "hora",
+      "horario",
+      "horarios",
       "nombre",
       "quiero",
       "para",
@@ -957,6 +1275,8 @@ function isLikelyReservationName(name) {
       "modificar",
       "correcto",
       "confirmo",
+      "ayer",
+      "anteayer",
       "manana",
       "hoy",
       "lunes",
@@ -969,6 +1289,36 @@ function isLikelyReservationName(name) {
       "mi",
       "tu",
       "su",
+      "soy",
+      "es",
+      "aceptan",
+      "acepta",
+      "pagar",
+      "recomienda",
+      "recomiendas",
+      "recomendacion",
+      "recomendaciones",
+      "incluye",
+      "incluyen",
+      "funciona",
+      "funcionan",
+      "maneja",
+      "manejan",
+      "disponibilidad",
+      "precio",
+      "cuesta",
+      "donde",
+      "promo",
+      "promocion",
+      "promociones",
+      "wifi",
+      "parqueo",
+      "servicio",
+      "servicios",
+      "puedo",
+      "pueden",
+      "tienen",
+      "hay",
       "esposa",
       "esposo",
       "novia",
@@ -976,7 +1326,7 @@ function isLikelyReservationName(name) {
     ])
   );
 
-  if (/\d/.test(name) || !/^[a-z' -]+$/.test(normalizedName)) {
+  if (!normalizedName || /\d/.test(normalizedName) || !/^[a-z' -]+$/.test(normalizedName)) {
     return false;
   }
 
@@ -986,23 +1336,50 @@ function isLikelyReservationName(name) {
     return false;
   }
 
-  return !tokens.some((token) => blockedWords.has(token));
+  if (allowShortReply && tokens.length > 3) {
+    return false;
+  }
+
+  if (["que", "cual", "cuales", "como", "cuando", "donde", "quien", "quienes"].includes(tokens[0])) {
+    return false;
+  }
+
+  if (tokens.length > 1 && ["de", "del", "la", "las", "los"].includes(tokens[0])) {
+    return false;
+  }
+
+  if (
+    /\b(?:aceptan|acepta|tienen|tienes|hay|incluye|incluyen|funciona|funcionan|maneja|manejan|queda|quedan|estan|abren|cierran|disponibilidad)\b/.test(
+      normalizedName
+    )
+  ) {
+    return false;
+  }
+
+  return !tokens.some((token) => token.length === 1 || blockedWords.has(token));
 }
 
 function trimReservationNameCandidate(value) {
-  let candidate = cleanReservationInput(value).split(/[;,.\n]/)[0].trim();
+  let candidate = cleanReservationInput(value).split(/[;,.!?\n]/)[0].trim();
 
   const cutoffPatterns = [
     /\s+(?:somos|seriamos|seremos)\b/i,
     /\s+mesa\s+para\b/i,
     /\s+para\s+\d{1,2}(?:\s+personas?)?\b/i,
+    /\s+para\s+anteayer\b/i,
+    /\s+para\s+ayer\b/i,
+    /\s+para\s+hoy\b/i,
     /\s+para\s+pasado\s+manana\b/i,
     /\s+para\s+manana\b/i,
     /\s+para\s+(?:este|el)\s+(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/i,
+    /\s+anteayer\b/i,
+    /\s+ayer\b/i,
+    /\s+hoy\b/i,
     /\s+pasado\s+manana\b/i,
     /\s+manana\b/i,
     /\s+(?:este|el)\s+(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/i,
-    /\s+(?:a\s+las|como\s+a\s+las|tipo)\b/i
+    /\s+(?:a\s+las|como\s+a\s+las|tipo)\b/i,
+    /\s+(?:aceptan|acepta|qr|pago|pagos|pagar|recomienda|recomiendas|recomendacion(?:es)?|precio|cuesta|donde|ubicacion|direccion|horario|promo(?:ciones)?|promocion(?:es)?|servicio(?:s)?|menu|carta)\b/i
   ];
 
   for (const pattern of cutoffPatterns) {
@@ -1016,9 +1393,11 @@ function trimReservationNameCandidate(value) {
   return cleanReservationInput(candidate);
 }
 
-function extractReservationName(rawText) {
+function extractReservationName(rawText, options = {}) {
+  const { allowShortReply = false } = options;
   const text = cleanReservationInput(rawText);
   const bookingAlternation = buildKeywordAlternation(getBookingKeywords());
+  const normalizedText = normalizeText(text);
 
   if (!text) {
     return null;
@@ -1030,6 +1409,7 @@ function extractReservationName(rawText) {
     new RegExp(`\\bla\\s+(?:${bookingAlternation})\\s+ser(?:i|ia)\\s+para\\s+(.+)$`, "i"),
     /\b(?:el\s+)?nombre\s+es\s+(.+)$/i,
     /\bmi\s+nombre\s+es\s+(.+)$/i,
+    /\bme\s+llamo\s+(.+)$/i,
     /\bsoy\s+(.+)$/i
   ];
 
@@ -1047,16 +1427,23 @@ function extractReservationName(rawText) {
     }
   }
 
-  const leadingCandidate = trimReservationNameCandidate(text);
+  if (!allowShortReply) {
+    return null;
+  }
 
-  if (isLikelyReservationName(leadingCandidate)) {
-    return formatReservationName(leadingCandidate);
+  if (isQuestionLikeReservationMessage(rawText, normalizedText)) {
+    return null;
+  }
+
+  if (isLikelyReservationName(text, { allowShortReply: true })) {
+    return formatReservationName(text);
   }
 
   return null;
 }
 
-function extractReservationPartySize(rawText) {
+function extractReservationPartySize(rawText, options = {}) {
+  const { allowSimpleNumericReply = true } = options;
   const normalizedText = normalizeText(cleanReservationInput(rawText));
 
   if (!normalizedText) {
@@ -1064,7 +1451,8 @@ function extractReservationPartySize(rawText) {
   }
 
   const patterns = [
-    /^(\d{1,2})(?:\s+personas?)?$/,
+    ...(allowSimpleNumericReply ? [/^(\d{1,2})$/] : []),
+    /^(\d{1,2})\s+personas?$/,
     /\bson\s+(\d{1,2})(?:\s+personas?)?\b/,
     /\b(?:somos|seriamos|seremos)\s+(\d{1,2})(?:\s+personas?)?\b/,
     /\bmesa\s+para\s+(\d{1,2})(?:\s+personas?)?\b/,
@@ -1099,7 +1487,9 @@ function captureReservationDetails(session, rawText, currentStep) {
   };
 
   if (!session.reservationDraft.name) {
-    const name = extractReservationName(rawText);
+    const name = extractReservationName(rawText, {
+      allowShortReply: currentStep === "name"
+    });
 
     if (name) {
       session.reservationDraft.name = name;
@@ -1108,7 +1498,9 @@ function captureReservationDetails(session, rawText, currentStep) {
   }
 
   if (!session.reservationDraft.partySize) {
-    const partySize = extractReservationPartySize(rawText);
+    const partySize = extractReservationPartySize(rawText, {
+      allowSimpleNumericReply: currentStep === "partySize"
+    });
 
     if (partySize) {
       session.reservationDraft.partySize = partySize;
@@ -1116,7 +1508,7 @@ function captureReservationDetails(session, rawText, currentStep) {
     }
   }
 
-  if (!session.reservationDraft.date) {
+  if (!session.reservationDraft.date && shouldCaptureReservationDate(rawText, currentStep)) {
     const parsedDate = parseDateInput(rawText);
 
     if (parsedDate.valid) {
@@ -1129,7 +1521,7 @@ function captureReservationDetails(session, rawText, currentStep) {
     }
   }
 
-  if (!session.reservationDraft.time && shouldAttemptTimeExtraction(rawText, currentStep)) {
+  if (!session.reservationDraft.time && shouldCaptureReservationTime(rawText, currentStep)) {
     const parsedTime = parseReservationTime(rawText);
 
     if (parsedTime.valid) {
@@ -1143,32 +1535,30 @@ function captureReservationDetails(session, rawText, currentStep) {
   return captureResult;
 }
 
-function applyReservationCorrections(session, rawText) {
-  const correctionResult = {
-    updatedAny: false,
-    invalid: {
-      date: null,
-      time: null
-    }
-  };
+function applyReservationCorrections(session, rawText, currentStep = "confirmation") {
+  const correctionResult = buildEmptyReservationCorrectionResult();
 
-  const name = extractReservationName(rawText);
+  const name = extractReservationName(rawText, {
+    allowShortReply: currentStep === "confirmation"
+  });
 
-  if (name && name !== session.reservationDraft.name) {
+  if (session.reservationDraft.name && name && name !== session.reservationDraft.name) {
     session.reservationDraft.name = name;
     correctionResult.updatedAny = true;
   }
 
-  const partySize = extractReservationPartySize(rawText);
+  const partySize = extractReservationPartySize(rawText, {
+    allowSimpleNumericReply: currentStep === "partySize" || currentStep === "confirmation"
+  });
 
-  if (partySize && partySize !== session.reservationDraft.partySize) {
+  if (session.reservationDraft.partySize && partySize && partySize !== session.reservationDraft.partySize) {
     session.reservationDraft.partySize = partySize;
     correctionResult.updatedAny = true;
   }
 
   const parsedDate = parseDateInput(rawText);
 
-  if (parsedDate.valid) {
+  if (session.reservationDraft.date && parsedDate.valid) {
     if (isPastDate(parsedDate.date)) {
       correctionResult.invalid.date = "past";
     } else if (parsedDate.formatted !== session.reservationDraft.date) {
@@ -1177,7 +1567,7 @@ function applyReservationCorrections(session, rawText) {
     }
   }
 
-  if (shouldAttemptTimeExtraction(rawText, "confirmation")) {
+  if (session.reservationDraft.time && shouldAttemptTimeExtraction(rawText, currentStep)) {
     const parsedTime = parseReservationTime(rawText);
 
     if (parsedTime.valid) {
@@ -1234,7 +1624,10 @@ function handleReservationConfirmationStep(session, rawText, normalizedText) {
     return finalizeReservationWithCapture(session);
   }
 
-  const correctionResult = applyReservationCorrections(session, rawText);
+  const shouldApplyCorrections = hasExplicitReservationCorrectionIntent(session, rawText, "confirmation");
+  const correctionResult = shouldApplyCorrections
+    ? applyReservationCorrections(session, rawText, "confirmation")
+    : buildEmptyReservationCorrectionResult();
 
   if (correctionResult.invalid.date === "past") {
     return [createTextMessage("La fecha no puede estar en el pasado. Enviame una fecha valida, por favor.")];
@@ -1270,25 +1663,55 @@ function handleReservationConfirmationStep(session, rawText, normalizedText) {
 
 function handleReservationStepWithCapture(session, rawText, currentStep, options = {}) {
   const captureResult = captureReservationDetails(session, rawText, currentStep);
-  const correctionResult = applyReservationCorrections(session, rawText);
+  const shouldApplyCorrections = hasExplicitReservationCorrectionIntent(session, rawText, currentStep);
+  const correctionResult = shouldApplyCorrections
+    ? applyReservationCorrections(session, rawText, currentStep)
+    : buildEmptyReservationCorrectionResult();
   const timeState = sanitizeReservationDraftTime(session);
   const nextStep = getNextReservationStep(session.reservationDraft);
-
-  session.reservationStep = nextStep;
+  const hasUsefulChange = captureResult.capturedAny || correctionResult.updatedAny;
+  const currentStepResolved = isReservationStepCompleted(currentStep, session.reservationDraft);
+  const fallbackStep = currentStepResolved ? nextStep : currentStep;
+  const shouldRepromptCurrentStep = options.preferPromptOnCurrentStep || shouldApplyCorrections;
 
   if (captureResult.invalid.date === "past" || correctionResult.invalid.date === "past") {
+    session.reservationStep = fallbackStep;
     return [createTextMessage("La fecha no puede estar en el pasado. Enviame una fecha valida, por favor.")];
   }
 
   if (captureResult.invalid.time === "outOfRange" || correctionResult.invalid.time === "outOfRange" || timeState.cleared) {
     session.currentFlow = "reservation";
-    session.reservationStep = "time";
+    session.reservationStep = fallbackStep;
     return [createTextMessage(buildReservationTimeOutOfRangeText())];
   }
 
-  if (!captureResult.capturedAny && !correctionResult.updatedAny && currentStep === nextStep && !options.preferPromptOnCurrentStep) {
-    return [createTextMessage(buildReservationErrorForStep(nextStep))];
+  if (!hasUsefulChange) {
+    session.reservationStep = currentStep;
+    return [
+      createTextMessage(
+        shouldRepromptCurrentStep
+          ? buildReservationPromptForStep(currentStep, {
+              reservationDraft: session.reservationDraft,
+              includeIntro: options.includeIntroOnNamePrompt && currentStep === "name"
+            })
+          : buildReservationErrorForStep(currentStep)
+      )
+    ];
   }
+
+  if (!currentStepResolved) {
+    session.reservationStep = currentStep;
+    return [
+      createTextMessage(
+        buildReservationPromptForStep(currentStep, {
+          reservationDraft: session.reservationDraft,
+          includeIntro: options.includeIntroOnNamePrompt && currentStep === "name"
+        })
+      )
+    ];
+  }
+
+  session.reservationStep = nextStep;
 
   return [
     createTextMessage(
@@ -1300,14 +1723,10 @@ function handleReservationStepWithCapture(session, rawText, currentStep, options
   ];
 }
 
-function beginReservationFlowWithCapture(session, rawText, options = {}) {
+function beginReservationFlowWithCapture(session, rawText) {
   session.currentFlow = "reservation";
   session.reservationStep = "name";
   session.reservationDraft = {};
-
-  if (options.ignoreInitialCapture) {
-    return [createTextMessage(buildReservationNamePrompt(true))];
-  }
 
   return handleReservationStepWithCapture(session, rawText, "name", {
     preferPromptOnCurrentStep: true,
@@ -1315,14 +1734,14 @@ function beginReservationFlowWithCapture(session, rawText, options = {}) {
   });
 }
 
-function matchReservationFlowAction(currentStep, normalizedText) {
-  const protectNumericPartySize = currentStep === "partySize" && isSimpleNumericReply(normalizedText);
+function matchReservationFlowAction(rawText, normalizedText) {
+  const protectSimpleNumericReply = isSimpleNumericReply(normalizedText);
 
   if (isCallIntent(normalizedText)) {
     return "call";
   }
 
-  if (!protectNumericPartySize && isHumanRequest(normalizedText)) {
+  if (!protectSimpleNumericReply && isHumanRequest(normalizedText)) {
     return "human";
   }
 
@@ -1330,11 +1749,27 @@ function matchReservationFlowAction(currentStep, normalizedText) {
     return "exit";
   }
 
-  if (!protectNumericPartySize && isConditionsIntent(normalizedText)) {
+  if (!protectSimpleNumericReply && isConditionsIntent(normalizedText)) {
     return "conditions";
   }
 
-  if (!protectNumericPartySize && isInfoIntent(normalizedText)) {
+  if (!protectSimpleNumericReply && isPaymentsIntent(normalizedText)) {
+    return "payments";
+  }
+
+  if (!protectSimpleNumericReply && isRecommendationIntent(normalizedText)) {
+    return "recommendation";
+  }
+
+  if (!protectSimpleNumericReply && isMenuCatalogIntent(rawText, normalizedText)) {
+    return "menu";
+  }
+
+  if (!protectSimpleNumericReply && isHoursIntent(normalizedText)) {
+    return "hours";
+  }
+
+  if (!protectSimpleNumericReply && isInfoIntent(normalizedText)) {
     return "info";
   }
 
@@ -1345,8 +1780,8 @@ function matchReservationFlowAction(currentStep, normalizedText) {
   return null;
 }
 
-async function handleReservationFlow(sessionStore, session, rawText, normalizedText) {
-  const flowAction = matchReservationFlowAction(session.reservationStep, normalizedText);
+async function handleReservationFlow(sessionStore, session, rawText, normalizedText, baseUrl) {
+  const flowAction = matchReservationFlowAction(rawText, normalizedText);
 
   if (flowAction === "call") {
     sessionStore.resetReservationState(session.userId);
@@ -1367,14 +1802,8 @@ async function handleReservationFlow(sessionStore, session, rawText, normalizedT
     return [createTextMessage(buildReservationExitText())];
   }
 
-  if (flowAction === "conditions") {
-    sessionStore.resetReservationState(session.userId);
-    return [createTextMessage(buildConditionsText())];
-  }
-
-  if (flowAction === "info") {
-    sessionStore.resetReservationState(session.userId);
-    return [createTextMessage(buildContactText())];
+  if (["conditions", "payments", "recommendation", "menu", "hours", "info"].includes(flowAction)) {
+    return buildReservationFaqMessages(session, flowAction, normalizedText, baseUrl);
   }
 
   switch (session.reservationStep) {
@@ -1441,9 +1870,7 @@ async function handleTopLevelMessage(session, rawText, normalizedText, baseUrl) 
     case "menu":
       return buildMenuMessages(baseUrl);
     case "reservation":
-      return beginReservationFlowWithCapture(session, rawText, {
-        ignoreInitialCapture: normalizedText === "2"
-      });
+      return beginReservationFlowWithCapture(session, rawText);
     case "info":
       return [createTextMessage(buildContactText())];
     case "conditions":
@@ -1520,7 +1947,7 @@ function createBot({
       let outboundMessages;
 
       if (session.currentFlow === "reservation") {
-        outboundMessages = await handleReservationFlow(sessionStore, session, rawText, normalizedText);
+        outboundMessages = await handleReservationFlow(sessionStore, session, rawText, normalizedText, baseUrl);
       } else if (session.isFirstContact && (!rawText || isGreetingOnly(normalizedText))) {
         session.isFirstContact = false;
         outboundMessages = [createTextMessage(buildMainMenuText())];

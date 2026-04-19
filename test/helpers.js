@@ -36,7 +36,34 @@ async function sendMessage(bot, userId, text) {
   });
 }
 
+function getOutboundTexts(response) {
+  return (response?.outboundMessages || []).map((message) => message.text || "");
+}
+
+function getLastOutboundText(response) {
+  const outboundTexts = getOutboundTexts(response);
+  return outboundTexts[outboundTexts.length - 1] || "";
+}
+
+async function sendConversation(bot, userId, messages = []) {
+  const transcript = [];
+
+  for (const text of messages) {
+    const response = await sendMessage(bot, userId, text);
+    transcript.push({
+      inboundText: text,
+      outboundTexts: getOutboundTexts(response),
+      response
+    });
+  }
+
+  return transcript;
+}
+
 module.exports = {
   createBotTestContext,
-  sendMessage
+  sendMessage,
+  sendConversation,
+  getOutboundTexts,
+  getLastOutboundText
 };
